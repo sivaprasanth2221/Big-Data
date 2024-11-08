@@ -1,0 +1,159 @@
+exc 11
+
+21badl04@mepcolinux b]$cat e11
+1.Load the customer data, split them based on the lifetime value criteria into Silver and Gold programs, and display the results.
+
+-- Load the customer dataset
+customers = LOAD '/Users/your_user_name/data/customer_ltv.txt'
+    USING PigStorage(',')
+    AS (Customer_Name:chararray, LifeTimeValue:int);
+
+-- Split customers into Silver and Gold programs based on their lifetime values
+silver_program = FILTER customers BY LifeTimeValue > 100 AND LifeTimeValue <= 20000;
+gold_program = FILTER customers BY LifeTimeValue > 20000;
+
+-- Display the customers in Silver and Gold Programs
+DUMP silver_program;
+DUMP gold_program;
+
+2.
+Load Order and Customer Data:
+
+-- Load the Order data
+orders = LOAD '/Users/your_user_name/data/orders.txt'
+    USING PigStorage(',')
+    AS (Order_ID:int, Customer_ID:int, ItemID:int, Item_Name:chararray,
+        Order_Date:chararray, Delivery_Date:chararray, Quantity:int, Cost:int);
+
+-- Load the Customer data
+customers = LOAD '/Users/your_user_name/data/customers.txt'
+    USING PigStorage(',')
+    AS (Customer_ID:int, Customer_Name:chararray, Address:chararray,
+        City:chararray, State:chararray, Country:chararray);
+
+Determine the Number of Items Bought by Each Customer:
+
+-- Group by Customer_ID to determine number of items bought
+grouped_orders = GROUP orders BY Customer_ID;
+items_bought = FOREACH grouped_orders GENERATE group AS Customer_ID, SUM(orders.Quantity) AS Total_Items;
+
+Merge Both Relations and Write to a New File:
+
+-- Join orders and customers on Customer_ID
+merged_data = JOIN orders BY Customer_ID, customers BY Customer_ID;
+
+-- Store the merged data in a new file
+STORE merged_data INTO '/Users/your_user_name/data/merged_output.txt'
+    USING PigStorage(',');
+
+Use Map Data Type to Create <Order_ID, Customer_Name>:
+
+-- Create a map of <Order_ID, Customer_Name>
+order_customer_map = FOREACH merged_data GENERATE orders::Order_ID, customers::Customer_Name;
+
+-- Dump the output to see the results
+DUMP order_customer_map;
+
+3,101,203,Item_C,2024-01-03,2024-01-06,4,1500,101,Jack,123 Elm St,New York,NY,USA
+1,101,201,Item_A,2024-01-01,2024-01-03,2,500,101,Jack,123 Elm St,New York,NY,USA
+2,102,202,Item_B,2024-01-02,2024-01-04,1,300,102,Smith,456 Pine St,Los Angeles,CA,USA
+4,103,204,Item_D,2024-01-04,2024-01-07,3,900,103,David,789 Oak St,Chicago,IL,USA
+5,104,205,Item_E,2024-01-05,2024-01-08,5,2500,104,John,321 Maple St,Houston,TX,USA
+
+3.Write a pig Latin Statement to display the names of all users who have sent emails and also list of all the people that they have sent the emails to. Store the result in a file.
+
+-- Load the dataset from the file
+emails = LOAD '/Users/your_user_name/data/emails.txt'
+    USING PigStorage(',')
+    AS (UserID:chararray, From:chararray, To:bag{(recipient:chararray)});
+
+-- Flatten the bag to get individual rows for each recipient
+flattened_emails = FOREACH emails GENERATE UserID, From, FLATTEN(To);
+
+-- Group by the sender (From) to list recipients for each sender
+grouped_emails = GROUP flattened_emails BY From;
+
+-- Create a list of recipients for each sender
+recipient_list = FOREACH grouped_emails GENERATE group AS Sender,
+                                      FLATTEN(BagToString(flattened_emails.recipient)) AS Recipients;
+
+-- Store the result in a new file
+STORE recipient_list INTO '/Users/your_user_name/data/sender_recipient_output.txt'
+    USING PigStorage(',');
+
+user1001@sample.com,null
+user1002@sample.com,null
+user1003@sample.com,null
+
+4.Use piggy bank function to execute eval_functions
+
+-- Register the Piggy Bank JAR file
+REGISTER '/path/to/pig/contrib/piggybank/java/piggybank.jar';
+
+-- Import the Piggy Bank eval function for string manipulation
+DEFINE ToUpper org.apache.pig.piggybank.evaluation.string.UPPER();
+
+-- Load the dataset
+emails = LOAD '/Users/your_user_name/data/emails.txt'
+    USING PigStorage(',')
+    AS (UserID:chararray, From:chararray, To:bag{(recipient:chararray)});
+
+-- Apply the UPPER function to convert email addresses to uppercase
+emails_upper = FOREACH emails GENERATE UserID, ToUpper(From) AS From_Upper,
+                      ToUpper(FLATTEN(To)) AS To_Upper;
+
+-- Store the result in a new file
+STORE emails_upper INTO '/Users/your_user_name/data/emails_upper_output.txt'
+    USING PigStorage(',');
+
+user1001,USER1001@SAMPLE.COM,
+user1002,USER1002@SAMPLE.COM,
+user1003,USER1003@SAMPLE.COM,
+
+5.Create a user defined function in any language and use it in Pig Script
+
+EmailDomain.py
+# EmailDomain.py
+
+@outputSchema("domain:chararray")
+def extract_domain(email):
+    try:
+        return email.split('@')[1]
+    except:
+        return None
+
+extract_domain.pig
+-- Register the Python UDF
+REGISTER 'EmailDomain.py' USING jython AS myudf;
+
+-- Load the dataset
+emails = LOAD '/Users/your_user_name/data/emails.txt'
+    USING PigStorage(',')
+    AS (UserID:chararray, From:chararray, To:bag{(recipient:chararray)});
+
+-- Apply the UDF to extract the domain of the email addresses
+emails_with_domain = FOREACH emails GENERATE UserID, myudf.extract_domain(From) AS From_Domain,
+                     FLATTEN(To);
+
+-- Store the result in a new file
+STORE emails_with_domain INTO '/Users/your_user_name/data/emails_with_domain_output.txt'
+    USING PigStorage(',');
+
+user1001,sample.com,
+user1002,sample.com,
+user1003,sample.com,
+
+
+6.execute all the pig files in mapreduce.
+
+#!/bin/bash
+
+pig -x mapreduce /Users/local/Documents/Big Data/ex11/extract_domain.pig
+pig -x mapreduce /Users/local/Documents/Big Data/ex11/email_processing.pig
+pig -x mapreduce /Users/local/Documents/Big Data/ex11/email_uppercase.pig
+pig -x mapreduce /Users/local/Documents/Big Data/ex11/reward_program.pig
+pig -x mapreduce /Users/local/Documents/Big Data/ex11/order_customer_analysis.pig
+[21badl04@mepcolinux b]$exit
+exit
+
+Script done on Wed 16 Oct 2024 02:40:07 PM IST

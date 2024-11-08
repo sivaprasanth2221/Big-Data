@@ -1,0 +1,146 @@
+exc 5
+
+[21badl04@mepcolinux b]$cat exc5.txt
+
+ from pyspark import SparkConf, SparkContext
+
+ conf = SparkConf().setAppName("CreateRDDsExample")
+ sc = SparkContext(conf=conf)
+
+ data = [1, 2, 3, 4, 5]
+ rdd1 = sc.parallelize(data)
+ rdd2 = sc.textFile("textfile.txt")
+ rdd3 = rdd1.coalesce(2)
+
+ print("Number of partitions for rdd1:", rdd1.getNumPartitions())
+Number of partitions for rdd1: 12
+ print("Number of partitions for rdd2:", rdd2.getNumPartitions())
+Number of partitions for rdd2: 2
+ print("Number of partitions for rdd3:", rdd3.getNumPartitions())
+Number of partitions for rdd3: 2
+
+ sc.stop()
+
+from pyspark import SparkConf, SparkContext
+conf = SparkConf().setAppName("FilterAndCountLines")
+sc = SparkContext(conf=conf)
+rdd = sc.textFile("textfile.txt")
+keyword = "Spark"
+filtered_rdd = rdd.filter(lambda line: keyword not in line)
+count = filtered_rdd.count()
+print(f"Number of lines remaining after filtering out '{keyword}': {count}")
+//Number of lines remaining after filtering out 'Spark': 3
+sc.stop()
+
+ from pyspark import SparkConf, SparkContext
+ from pyspark.mllib.linalg import Vectors
+ from pyspark.sql import Row
+ import math
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("SumAndFactorials")
+ sc = SparkContext(conf=conf)
+
+ # Read a text file and create an RDD of numbers
+ rdd = sc.textFile("numbers.txt").map(lambda line: int(line))
+
+ # Calculate the sum of numbers
+ sum_of_numbers = rdd.sum()
+ print(f"Sum of numbers: {sum_of_numbers}")
+Sum of numbers: 15
+
+ # Find factorials of each number
+ factorials_rdd = rdd.map(lambda x: (x, math.factorial(x)))
+ for num, fact in factorials_rdd.collect():
+...     print(f"Factorial of {num} is {fact}")
+...
+Factorial of 1 is 1
+Factorial of 2 is 2
+Factorial of 3 is 6
+Factorial of 4 is 24
+Factorial of 5 is 120
+ # Stop the Spark context
+ sc.stop()
+
+
+ from pyspark import SparkConf, SparkContext
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("EmployeeData")
+ sc = SparkContext(conf=conf)
+
+ # Create RDD from employee data
+ data = [(1, 50000), (2, 60000), (3, 70000), (4, 80000)]
+ rdd = sc.parallelize(data)
+
+ # i) Find the highest salary
+ highest_salary = rdd.map(lambda x: x[1]).max()
+ print(f"Highest salary: {highest_salary}")
+Highest salary: 80000
+
+ # ii) Sort the employee IDs in ascending order
+ sorted_rdd = rdd.sortBy(lambda x: x[0])
+ print("Sorted employee IDs and salaries:")
+Sorted employee IDs and salaries:
+ for emp in sorted_rdd.collect():
+...     print(emp)
+...
+(1, 50000)
+(2, 60000)
+(3, 70000)
+(4, 80000)
+ # Stop the Spark context
+ sc.stop()
+
+ from pyspark import SparkConf, SparkContext
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("WordCount")
+ sc = SparkContext(conf=conf)
+
+ # Read a text file
+ rdd = sc.textFile("textfile.txt")
+
+ # Split lines into words and count occurrences
+ word_counts = rdd.flatMap(lambda line: line.split()) \
+...                   .map(lambda word: (word, 1)) \
+...                   .reduceByKey(lambda a, b: a + b)
+
+ # Collect and print results
+ for word, count in word_counts.collect():
+...     print(f"{word}: {count}")
+...\\
+
+
+
+
+
+is: 3
+test: 1
+file.: 1
+It: 1
+Spark: 1
+tool.: 1
+Spark.: 1
+line: 1
+This: 1
+a: 2
+contains: 1
+some: 1
+lines.: 1
+powerful: 1
+We: 1
+will: 1
+filter: 1
+lines: 1
+containing: 1
+Here: 1
+another: 1
+without: 1
+the: 1
+keyword.: 1
+ # Stop the Spark context
+ sc.stop()
+
+[21badl04@mepcolinux b]$exit
+exit

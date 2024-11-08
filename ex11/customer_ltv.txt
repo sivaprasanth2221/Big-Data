@@ -1,0 +1,9 @@
+Jack,25000
+Smith,8000
+David,35000
+John,15000
+Scott,10000
+Joshi,28000
+Ajay,12000
+Vinay,3000
+Joseph,21000

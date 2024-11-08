@@ -1,0 +1,28 @@
+Pig Stack Trace
+---------------
+ERROR 1200: URI '/Users/sivaprasanth/Documents/Big\ is incorrect.
+
+Failed to parse: URI '/Users/sivaprasanth/Documents/Big\ is incorrect.
+	at org.apache.pig.parser.RegisterResolver.parseRegister(RegisterResolver.java:60)
+	at org.apache.pig.tools.grunt.GruntParser.processRegister(GruntParser.java:464)
+	at org.apache.pig.tools.pigscript.parser.PigScriptParser.parse(PigScriptParser.java:557)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:230)
+	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+	at org.apache.pig.Main.run(Main.java:630)
+	at org.apache.pig.Main.main(Main.java:175)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.apache.hadoop.util.RunJar.run(RunJar.java:330)
+	at org.apache.hadoop.util.RunJar.main(RunJar.java:245)
+Caused by: java.net.URISyntaxException: Illegal character in path at index 34: '/Users/sivaprasanth/Documents/Big\
+	at java.base/java.net.URI$Parser.fail(URI.java:2913)
+	at java.base/java.net.URI$Parser.checkChars(URI.java:3084)
+	at java.base/java.net.URI$Parser.parseHierarchical(URI.java:3166)
+	at java.base/java.net.URI$Parser.parse(URI.java:3125)
+	at java.base/java.net.URI.<init>(URI.java:600)
+	at org.apache.pig.parser.RegisterResolver.parseRegister(RegisterResolver.java:47)
+	... 13 more
+================================================================================

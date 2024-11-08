@@ -1,0 +1,115 @@
+exc 3
+
+[21badl04@mepcolinux b]$cat exc3.txt
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class UserPageCount {
+
+    public static class TokenizerMapper extends Mapper<LongWritable, Text, Text, Text> {
+        private Text userId = new Text();
+        private Text pageCountUrl = new Text();
+
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            StringTokenizer itr = new StringTokenizer(value.toString(), ",");
+            while (itr.hasMoreTokens()) {
+                String user = itr.nextToken();
+                String pageCount = itr.nextToken();
+                String url = itr.nextToken();
+                userId.set(user);
+                pageCountUrl.set(pageCount + "," + url);
+                context.write(userId, pageCountUrl);
+            }
+        }
+    }
+
+    public static class IntSumReducer extends Reducer<Text, Text, Text, Text> {
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            List<String> pageCountUrlList = new ArrayList<>();
+            for (Text val : values) {
+                pageCountUrlList.add(val.toString());
+            }
+
+            // Sort based on the page count
+            Collections.sort(pageCountUrlList, (a, b) -> {
+                int pageCountA = Integer.parseInt(a.split(",")[0]);
+                int pageCountB = Integer.parseInt(b.split(",")[0]);
+                return Integer.compare(pageCountA, pageCountB);
+            });
+
+            StringBuilder sortedPageCounts = new StringBuilder();
+            for (String pageCountUrl : pageCountUrlList) {
+                sortedPageCounts.append(pageCountUrl).append(" ");
+            }
+            context.write(key, new Text(sortedPageCounts.toString().trim()));
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "user page count");
+        job.setJarByClass(UserPageCount.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setReducerClass(IntSumReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class SearchUser {
+
+    public static void main(String[] args) throws IOException {
+        if (args.length != 2) {
+            System.err.println("Usage: SearchUser <output-dir> <user-id>");
+            System.exit(1);
+        }
+
+        String outputDir = args[0];
+        String userId = args[1];
+
+        try (BufferedReader br = new BufferedReader(new FileReader(outputDir + "/part-r-00000"))) {
+            String line;
+            boolean found = false;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\t");
+                if (parts.length == 2 && parts[0].trim().equals(userId)) {
+                    System.out.println(parts[1]);  // Output the entire line after the user-id
+                    found = true;
+                    break;  // Assuming user-id is unique, exit loop once found
+                }
+            }
+            if (!found) {
+                System.out.println("No matching record found for user-id: " + userId);
+            }
+        }
+    }
+}
+
+
+
+001     3,www.turorialspoint.com  4,www.javapoint.com
+002     5,www.javapoint.com
+003     2,www.analyticsvidhya.com

@@ -1,0 +1,88 @@
+jonam@Jonam:~/spark$ cat regression.py
+from pyspark.sql import SparkSession
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.regression import LinearRegression
+
+spark = SparkSession.builder.appName("MovieLensAnalysis").config("spark.driver.memory", "4g").getOrCreate()
+ratings_df = spark.read.csv("ml-25m/ratings.csv", header=True, inferSchema=True)
+
+ratings_df.show(5)
+
+
+vector_assembler = VectorAssembler(inputCols=["userId", "movieId"], outputCol="features")
+ratings_features_df = vector_assembler.transform(ratings_df)
+train_data, test_data = ratings_features_df.randomSplit([0.8, 0.2], seed=42)
+lr = LinearRegression(featuresCol="features", labelCol="rating")
+lr_model = lr.fit(train_data)
+test_results = lr_model.evaluate(test_data)
+
+print("Coefficients:", lr_model.coefficients)
+print("Intercept:", lr_model.intercept)
+
+print("Root Mean Squared Error (RMSE):", test_results.rootMeanSquaredError)
+print("R-squared:", test_results.r2)
+jonam@Jonam:~/spark$ cat colloborative.py
+from pyspark.sql import SparkSession
+from pyspark.ml.recommendation import ALS
+from pyspark.ml.evaluation import RegressionEvaluator
+
+
+spark = SparkSession.builder.appName("MovieLensAnalysis").getOrCreate()
+
+ratings_df = spark.read.csv("ml-25m/ratings.csv", header=True, inferSchema=True)
+
+ratings_df.show(5)
+
+vector_assembler = VectorAssembler(inputCols=["userId", "movieId"], outputCol="features")
+ratings_features_df = vector_assembler.transform(ratings_df)
+train_data, test_data = ratings_features_df.randomSplit([0.8, 0.2], seed=42)
+
+als = ALS(maxIter=10, regParam=0.1, userCol="userId", itemCol="movieId", ratingCol="rating", coldStartStrategy="drop")
+als_model = als.fit(train_data)
+
+predictions = als_model.transform(test_data)
+
+evaluator = RegressionEvaluator(metricName="rmse", labelCol="rating", predictionCol="prediction")
+rmse = evaluator.evaluate(predictions)
+
+print(f"Root Mean Squared Error = {rmse}")
+
+user_recommendations = als_model.recommendForAllUsers(5)
+user_recommendations.show(5, truncate=False)
+jonam@Jonam:~/spark$ cat clustering.py
+from pyspark.ml.clustering import KMeans
+from pyspark.ml.evaluation import ClusteringEvaluator
+from pyspark.sql import SparkSession
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("KMeansClustering").getOrCreate()
+
+# Load the Iris dataset (.data format) without a header
+data = spark.read.csv("iris/iris.data", header=False, inferSchema=True)
+
+# Rename the columns based on the Iris dataset structure
+data = data.withColumnRenamed("_c0", "sepal_length") \
+           .withColumnRenamed("_c1", "sepal_width") \
+           .withColumnRenamed("_c2", "petal_length") \
+           .withColumnRenamed("_c3", "petal_width") \
+           .withColumnRenamed("_c4", "species")
+
+# Select only the feature columns for clustering
+from pyspark.ml.feature import VectorAssembler
+assembler = VectorAssembler(inputCols=["sepal_length", "sepal_width", "petal_length", "petal_width"], outputCol="features")
+data = assembler.transform(data)
+
+# Train KMeans model
+kmeans = KMeans().setK(3).setSeed(1)  # K=3 as there are 3 species of Iris
+model = kmeans.fit(data)
+
+# Make predictions
+predictions = model.transform(data)
+
+# Evaluate clustering by computing Silhouette score
+evaluator = ClusteringEvaluator()
+silhouette = evaluator.evaluate(predictions)
+print(f"Silhouette with squared euclidean distance = {silhouette}")
+
+# Save the trained model
+model.save("kmeans_model")

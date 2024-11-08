@@ -1,0 +1,449 @@
+jonam@Jonam:~/hadoop/big_data/ex2$ cat WordCountProj.java
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCountProg{
+
+    public static class WordCountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+        @Override
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            StringTokenizer tokenizer = new StringTokenizer(line);
+            while (tokenizer.hasMoreTokens()) {
+                word.set(tokenizer.nextToken());
+                context.write(word, one);
+            }
+        }
+    }
+
+    public static class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        private IntWritable result = new IntWritable();
+
+        @Override
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable value : values) {
+                sum += value.get();
+            }
+            result.set(sum);
+            context.write(key, result);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: WordCountProg <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "word count");
+
+        job.setJarByClass(WordCountProg.class);
+        job.setMapperClass(WordCountMapper.class);
+        job.setCombinerClass(WordCountReducer.class);
+        job.setReducerClass(WordCountReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+jonam@Jonam:~/hadoop/big_data/ex2$ cat MovieRatingAnalyzer.java
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+
+public class MovieRatingAnalyzer {
+
+    // Mapper class
+    public static class RatingMapper extends Mapper<LongWritable, Text, Text, DoubleWritable> {
+
+        private Text movieId = new Text();
+        private DoubleWritable rating = new DoubleWritable();
+
+        @Override
+        public void map(LongWritable key, Text value, Context context)
+                throws IOException, InterruptedException {
+
+            // Split the input line into movieId and rating
+            String[] parts = value.toString().trim().split(",");
+
+            if (parts.length == 2) {
+                String id = parts[0].trim();
+                double ratingValue = Double.parseDouble(parts[1].trim());
+
+                // Set the movieId and rating as output
+                movieId.set(id);
+                rating.set(ratingValue);
+
+                // Emit the key-value pair
+                context.write(movieId, rating);
+            }
+        }
+    }
+
+    // Reducer class
+    public static class RatingReducer extends Reducer<Text, DoubleWritable, Text, Text> {
+
+        private Text result = new Text();
+
+        @Override
+        public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
+                throws IOException, InterruptedException {
+
+            double maxRating = Double.MIN_VALUE;
+            double minRating = Double.MAX_VALUE;
+
+            // Iterate through all ratings for the given movie
+            for (DoubleWritable value : values) {
+                double rating = value.get();
+
+                // Update max and min ratings
+                if (rating > maxRating) {
+                    maxRating = rating;
+                }
+                if (rating < minRating) {
+                    minRating = rating;
+                }
+            }
+
+            // Prepare the output value as a formatted string
+            String output = "Max Rating: " + maxRating + ", Min Rating: " + minRating;
+
+            // Set the result text
+            result.set(output);
+
+            // Emit the movieId and the result
+            context.write(key, result);
+        }
+    }
+
+    // Main method to run the MapReduce job
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "Movie Rating Analyzer");
+
+        job.setJarByClass(MovieRatingAnalyzer.class);
+        job.setMapperClass(RatingMapper.class);
+        job.setReducerClass(RatingReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(DoubleWritable.class);
+
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(DoubleWritable.class);
+
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+jonam@Jonam:~/hadoop/big_data/ex2$ cd ..
+jonam@Jonam:~/hadoop/big_data$ cd ex3
+jonam@Jonam:~/hadoop/big_data/ex3$ cat CombinedJob.java
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class CombinedJob {
+
+    public static class SortMapper extends Mapper<Object, Text, Text, Text> {
+
+        private Text name = new Text();
+        private Text id = new Text();
+
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String[] parts = value.toString().split(",");
+            if (parts.length == 2) {
+                id.set(parts[0]);
+                name.set(parts[1]);
+                context.write(name, id);
+            }
+        }
+    }
+
+    public static class SortReducer extends Reducer<Text, Text, Text, Text> {
+
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            for (Text val : values) {
+                context.write(key, val);
+            }
+        }
+    }
+
+    public static class SearchMapper extends Mapper<Object, Text, Text, Text> {
+
+        private Text name = new Text();
+        private Text id = new Text();
+
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String[] parts = value.toString().split("\t"); // tab-separated from the sorted output
+            if (parts.length == 2) {
+                name.set(parts[0]);
+                id.set(parts[1]);
+                context.write(name, id);
+            }
+        }
+    }
+
+    public static class SearchReducer extends Reducer<Text, Text, Text, Text> {
+
+        private String searchName;
+
+        @Override
+        protected void setup(Context context) {
+            searchName = context.getConfiguration().get("search.name");
+        }
+
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            if (key.toString().equals(searchName)) {
+                for (Text val : values) {
+                    context.write(key, val);
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length != 4) {
+            System.err.println("Usage: CombinedJob <input path> <sort output path> <final output path> <search name>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+        Job sortJob = Job.getInstance(conf, "Sort Employee Data");
+
+        sortJob.setJarByClass(CombinedJob.class);
+        sortJob.setMapperClass(SortMapper.class);
+        sortJob.setReducerClass(SortReducer.class);
+
+        sortJob.setOutputKeyClass(Text.class);
+        sortJob.setOutputValueClass(Text.class);
+
+        FileInputFormat.addInputPath(sortJob, new Path(args[0]));
+        FileOutputFormat.setOutputPath(sortJob, new Path(args[1]));
+
+        boolean sortJobCompleted = sortJob.waitForCompletion(true);
+        if (!sortJobCompleted) {
+            System.exit(1);
+        }
+
+        Job searchJob = Job.getInstance(conf, "Search Employee Name");
+        searchJob.getConfiguration().set("search.name", args[3]);
+
+        searchJob.setJarByClass(CombinedJob.class);
+        searchJob.setMapperClass(SearchMapper.class);
+        searchJob.setReducerClass(SearchReducer.class);
+
+        searchJob.setOutputKeyClass(Text.class);
+        searchJob.setOutputValueClass(Text.class);
+
+        FileInputFormat.addInputPath(searchJob, new Path(args[1]));
+        FileOutputFormat.setOutputPath(searchJob, new Path(args[2]));
+
+        System.exit(searchJob.waitForCompletion(true) ? 0 : 1);
+    }
+}
+jonam@Jonam:~/hadoop/big_data/ex3$ cd ..
+jonam@Jonam:~/hadoop/big_data$ cd ex4
+jonam@Jonam:~/hadoop/big_data/ex4$ cat TFIDF.java
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+public class TFIDF {
+
+    public static class TFIDFMapper extends Mapper<LongWritable, Text, Text, Text> {
+
+        private Text wordDoc = new Text();
+        private Text docInfo = new Text();
+
+        @Override
+        public void map(LongWritable key, Text value, Context context)
+                throws IOException, InterruptedException {
+
+            // Assuming each line in the input represents a document
+            String line = value.toString().toLowerCase();
+            StringTokenizer tokenizer = new StringTokenizer(line);
+
+            // Get the document ID from the file name
+            String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
+            String docId = fileName.replaceAll(".txt", ""); // Assuming input files are named as doc1.txt, doc2.txt, etc.
+
+            // Calculate term frequencies
+            Map<String, Integer> termFrequency = new HashMap<>();
+            int totalTerms = 0;
+
+            while (tokenizer.hasMoreTokens()) {
+                String token = tokenizer.nextToken();
+                totalTerms++;
+
+                if (termFrequency.containsKey(token)) {
+                    termFrequency.put(token, termFrequency.get(token) + 1);
+                } else {
+                    termFrequency.put(token, 1);
+                }
+            }
+
+            // Emit <word@docId, tf>
+            for (Map.Entry<String, Integer> entry : termFrequency.entrySet()) {
+                String wordDocKey = entry.getKey() + "@" + docId;
+                double tf = (double) entry.getValue() / totalTerms;
+                wordDoc.set(wordDocKey);
+                docInfo.set(String.valueOf(tf));
+                context.write(wordDoc, docInfo);
+            }
+        }
+    }
+
+    public static class TFIDFCombiner extends Reducer<Text, Text, Text, Text> {
+
+        private Text combinedDocInfo = new Text();
+
+        @Override
+        public void reduce(Text key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
+
+            Map<String, Double> combinedMap = new HashMap<>();
+
+            for (Text value : values) {
+                double tf = Double.parseDouble(value.toString());
+                String docId = key.toString().split("@")[1];
+
+                if (combinedMap.containsKey(docId)) {
+                    combinedMap.put(docId, combinedMap.get(docId) + tf);
+                } else {
+                    combinedMap.put(docId, tf);
+                }
+            }
+
+            // Emit <word@docId, combined tf>
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Double> entry : combinedMap.entrySet()) {
+                sb.append(entry.getKey()).append(":").append(entry.getValue()).append(",");
+            }
+
+            // Remove the last comma
+            if (sb.length() > 0) {
+                sb.setLength(sb.length() - 1);
+            }
+
+            combinedDocInfo.set(sb.toString());
+            context.write(key, combinedDocInfo);
+        }
+    }
+
+    public static class TFIDFReducer extends Reducer<Text, Text, Text, DoubleWritable> {
+
+        private DoubleWritable tfidf = new DoubleWritable();
+        private int numDocuments = 3; // Assuming there are 3 documents in total
+
+        @Override
+        public void reduce(Text key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
+
+            // Count how many documents contain the term
+            int docCount = 0;
+            Map<String, Double> termFrequencyMap = new HashMap<>();
+
+            for (Text value : values) {
+                String[] docInfos = value.toString().split(",");
+                for (String docInfo : docInfos) {
+                    String[] parts = docInfo.split(":");
+                    String docId = key.toString().split("@")[1];
+                    double tf = Double.parseDouble(parts[1]);
+
+                    if (termFrequencyMap.containsKey(docId)) {
+                        termFrequencyMap.put(docId, termFrequencyMap.get(docId) + tf);
+                    } else {
+                        termFrequencyMap.put(docId, tf);
+                        docCount++;
+                    }
+                }
+            }
+
+            // Calculate IDF
+            double idf = Math.log((double) numDocuments / docCount);
+
+            // Calculate TF-IDF and emit <word@docId, tfidf>
+            for (Map.Entry<String, Double> entry : termFrequencyMap.entrySet()) {
+                String wordDocKey = key.toString();
+                double tf = entry.getValue();
+                double tfidfValue = tf * idf;
+                tfidf.set(tfidfValue);
+                context.write(new Text(wordDocKey), tfidf);
+            }
+        }
+    }
+
+    // Main method
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: TFIDF <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+
+        Job job = Job.getInstance(conf, "TF-IDF Calculation");
+        job.setJarByClass(TFIDF.class);
+        job.setMapperClass(TFIDFMapper.class);
+        job.setCombinerClass(TFIDFCombiner.class); // Set Combiner class
+        job.setReducerClass(TFIDFReducer.class);
+
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(Text.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(DoubleWritable.class);
+
+        job.setInputFormatClass(TextInputFormat.class); // Set input format to TextInputFormat
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}

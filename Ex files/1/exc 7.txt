@@ -1,0 +1,89 @@
+exc 7
+
+[21badl04@mepcolinux b]$cat 7.prn
+Script started on Tuesday 08 October 2024 02:37:26 PM IST
+[21badl04@mepcolinux b]$cat exc7
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("IoT Intrusion Detection").getOrCreate()
+data_path = r"IoT_Intrusion.csv"
+df = spark.read.csv(data_path, header=True, inferSchema=True)
+
+df.show(5)
+
+
+from pyspark.ml.feature import VectorAssembler, StringIndexer
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+indexer = StringIndexer(inputCol="label", outputCol="label_indexed")
+
+df = indexer.fit(df).transform(df)
+feature_columns = [col for col in df.columns if col != "label" and col != "label_indexed"]
+
+
+assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+
+df = assembler.transform(df)
+
+train_data, test_data = df.randomSplit([0.7, 0.3])
+
+rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="features", numTrees=10)
+
+model = rf.fit(train_data)
+predictions = model.transform(test_data)
+evaluator = MulticlassClassificationEvaluator(labelCol="label_indexed", metricName="accuracy")
+accuracy = evaluator.evaluate(predictions)
+
+
+print(f"Accuracy: {accuracy}")
+
+
+
++-------------+-------------+-------------+--------+-----------+-----------+-----+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------+---------+---------+---------+---------+----+-----+---+------+----+---+---+---+---+----+---+----+---+---+-------+-----+-----+-----------+-----------+--------+-------------+------+-----------+-----------+-----------+--------+------+----------------+
+|flow_duration|Header_Length|Protocol Type|Duration|       Rate|      Srate|Drate|fin_flag_number|syn_flag_number|rst_flag_number|psh_flag_number|ack_flag_number|ece_flag_number|cwr_flag_number|ack_count|syn_count|fin_count|urg_count|rst_count|HTTP|HTTPS|DNS|Telnet|SMTP|SSH|IRC|TCP|UDP|DHCP|ARP|ICMP|IPv|LLC|Tot sum|  Min|  Max|        AVG|        Std|Tot size|          IAT|Number|   Magnitue|     Radius| Covariance|Variance|Weight|           label|
++-------------+-------------+-------------+--------+-----------+-----------+-----+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------+---------+---------+---------+---------+----+-----+---+------+----+---+---+---+---+----+---+----+---+---+-------+-----+-----+-----------+-----------+--------+-------------+------+-----------+-----------+-----------+--------+------+----------------+
+|          0.0|         54.0|          6.0|    64.0|0.329807153|0.329807153|  0.0|              1|              0|              1|              0|              0|              0|              0|      1.0|      0.0|      1.0|      0.0|      0.0|   0|    0|  0|     0|   0|  0|  0|  1|  0|   0|  0|   0|  1|  1|  567.0| 54.0| 54.0|       54.0|        0.0|    54.0|8.334383192E7|   9.5|10.39230485|        0.0|        0.0|     0.0|141.55|DDoS-RSTFINFlood|
+|          0.0|        57.04|         6.33|    64.0|4.290556192|4.290556192|  0.0|              0|              0|              0|              0|              0|              0|              0|      0.0|      0.0|      0.0|      0.0|      0.0|   1|    0|  0|     0|   0|  0|  0|  1|  0|   0|  0|   0|  1|  1| 581.33| 54.0| 66.3|54.79640359|2.822973165|   57.04|8.292606747E7|   9.5|10.46466611|4.010353307|160.9878424|    0.05|141.55|   DoS-TCP_Flood|
+|          0.0|          0.0|          1.0|    64.0|33.39679911|33.39679911|  0.0|              0|              0|              0|              0|              0|              0|              0|      0.0|      0.0|      0.0|      0.0|      0.0|   0|    0|  0|     0|   0|  0|  0|  0|  0|   0|  0|   1|  1|  1|  441.0| 42.0| 42.0|       42.0|        0.0|    42.0|8.312799393E7|   9.5| 9.16515139|        0.0|        0.0|     0.0|141.55| DDoS-ICMP_Flood|
+|  0.328174953|      76175.0|         17.0|    64.0| 4642.13301| 4642.13301|  0.0|              0|              0|              0|              0|              0|              0|              0|      0.0|      0.0|      0.0|      0.0|      0.0|   0|    0|  0|     0|   0|  0|  0|  0|  1|   0|  0|   0|  1|  1|  525.0| 50.0| 50.0|       50.0|        0.0|    50.0|8.301569638E7|   9.5|       10.0|        0.0|        0.0|     0.0|141.55|   DoS-UDP_Flood|
+|  0.117320385|       101.73|         6.11|   65.91|6.202211257|6.202211257|  0.0|              0|              1|              0|              0|              0|              0|              0|      0.0|     1.01|     0.04|      0.0|     0.02|   0|    0|  0|     0|   0|  0|  0|  1|  0|   0|  0|   0|  1|  1|  644.6|57.88|131.6|67.95922987|23.11311146|   57.88|8.297299918E7|   9.5|11.34687642|32.71624254|3016.808286|    0.19|141.55|   DoS-SYN_Flood|
++-------------+-------------+-------------+--------+-----------+-----------+-----+---------------+---------------+---------------+---------------+---------------+---------------+---------------+---------+---------+---------+---------+---------+----+-----+---+------+----+---+---+---+---+----+---+----+---+---+-------+-----+-----+-----------+-----------+--------+-------------+------+-----------+-----------+-----------+--------+------+----------------+
+only showing top 5 rows
+
+Accuracy: 0.8076689157992275
+
+
+
+
+
+from pyspark.sql.types import DoubleType, IntegerType
+from pyspark.ml.clustering import KMeans
+from pyspark.ml.evaluation import ClusteringEvaluator
+from pyspark.ml.feature import VectorAssembler, StandardScaler
+
+feature_columns = [col for col in df.columns if col != "label" and df.schema[col].dataType in [DoubleType(), IntegerType()]]
+
+assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+
+if "features" in df.columns:
+    df = df.drop("features")
+
+df_features = assembler.transform(df)
+
+scaler = StandardScaler(inputCol="features", outputCol="scaled_features", withMean=True, withStd=True)
+scaler_model = scaler.fit(df_features)
+
+
+df_scaled = scaler_model.transform(df_features)
+
+k=3
+kmeans = KMeans(featuresCol="scaled_features", k)
+model = kmeans.fit(df_scaled)
+predictions = model.transform(df_scaled)
+evaluator = ClusteringEvaluator(featuresCol="scaled_features")
+silhouette = evaluator.evaluate(predictions)
+print(f"Silhouette with squared euclidean distance = {silhouette}")
+
+Silhouette with squared euclidean distance = 0.4486144988490741
+

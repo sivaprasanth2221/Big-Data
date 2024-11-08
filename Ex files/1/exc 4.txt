@@ -1,0 +1,103 @@
+exc 4
+
+import java.io.IOException;
+import java.util.HashSet;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+
+public class InvertedIndex {
+
+    // Mapper class
+    public static class InvertedIndexMapper extends Mapper<LongWritable, Text, Text, Text> {
+
+        private Text name = new Text();
+        private Text filename = new Text();
+
+        @Override
+        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            // Get the filename from the context
+            String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
+            filename.set(fileName);
+
+            // Split the input line to extract the employee name
+            String[] tokens = value.toString().split(",");
+            if (tokens.length > 0) {
+                name.set(tokens[0].trim());
+                context.write(name, filename);
+            }
+        }
+    }
+
+    // Reducer class
+    public static class InvertedIndexReducer extends Reducer<Text, Text, Text, Text> {
+
+        @Override
+        protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            HashSet<String> fileSet = new HashSet<>();
+
+            // Collect all unique filenames for each employee name
+            for (Text value : values) {
+                fileSet.add(value.toString());
+            }
+
+            // Join filenames into a single string
+            StringBuilder fileList = new StringBuilder();
+            for (String filename : fileSet) {
+                if (fileList.length() > 0) {
+                    fileList.append("\t");
+                }
+                fileList.append(filename);
+            }
+
+            context.write(key, new Text(fileList.toString()));
+        }
+    }
+
+    // Driver class
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: InvertedIndex <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "Inverted Index");
+
+        job.setJarByClass(InvertedIndex.class);
+        job.setMapperClass(InvertedIndexMapper.class);
+        job.setReducerClass(InvertedIndexReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+
+        job.setInputFormatClass(TextInputFormat.class);
+        job.setOutputFormatClass(TextOutputFormat.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+output
+
+sam     sample1.csv     sample3.csv
+dharun  sample3.csv
+ram     sample1.csv     sample2.csv
+jayaram sample2.csv
+keshav  sample2.csv
+naboth  sample1.csv
+sagar   sample3.csv

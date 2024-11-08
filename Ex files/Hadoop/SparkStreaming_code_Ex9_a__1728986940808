@@ -1,0 +1,8 @@
+from pyspark.streaming import  StreamingContext
+ssc = StreamingContext(sc, 1)
+lines = ssc.socketTextStream("localhost",9999)
+words = lines.flatMap(lambda line : line.split(" "))
+pairs = words.map(lambda word:(word,1))
+wc = pairs.reduceByKey(lambda x, y: x+y)
+wc.pprint()
+ssc.start()

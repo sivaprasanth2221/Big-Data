@@ -1,0 +1,159 @@
+from pyspark.sql import SparkSession
+from graphframes import GraphFrame
+
+
+spark = SparkSession.builder \
+.appName("SocialNetworkGraph") \
+.getOrCreate()
+
+
+vertices = spark.createDataFrame([
+("1", "Alice", 34),
+("2", "Bob", 36),
+("3", "Charlie", 30),
+("4", "David", 29),
+("5", "Edward", 40),
+("6", "Frank", 28)
+], ["id", "name", "age"])
+
+
+edges = spark.createDataFrame([
+("1", "2", "friend"),
+("2", "3", "friend"),
+("3", "4", "friend"),
+("4", "3", "friend"),
+("5", "6", "friend"),
+("6", "1", "friend")
+], ["src", "dst", "relationship"])
+
+
+g = GraphFrame(vertices, edges)
+
+
+pagerank_results = g.pageRank(resetProbability=0.15, maxIter=10)
+pagerank_results.vertices.select("id", "name", "pagerank").show()
+
+
+age_grouped = vertices.withColumn("age_group", (vertices["age"] / 10).cast("integer") * 10)
+age_grouped.show()
+
+vertices.write.csv("/usr/local/spark/graph_vertices.csv")
+edges.write.csv("/usr/local/spark/graph_edges.csv")
+age_grouped.write.csv("/usr/local/spark/age_grouped.csv")
+
+
+
+
+shortest_paths = g.shortestPaths(landmarks=["1", "2"])
+shortest_paths.select("id", "name", "distances").show()
+
+
++---+-------+-------------------+
+| id|   name|           pagerank|
++---+-------+-------------------+
+|  3|Charlie|           2.464125|
+|  5| Edward|0.15000000000000002|
+|  6|  Frank|             0.2775|
+|  1|  Alice| 0.3858750000000001|
+|  4|  David|         2.24450625|
+|  2|    Bob| 0.4779937500000001|
++---+-------+-------------------+
+
++---+-------+---+---------+
+| id|   name|age|age_group|
++---+-------+---+---------+
+|  1|  Alice| 34|       30|
+|  2|    Bob| 36|       30|
+|  3|Charlie| 30|       30|
+|  4|  David| 29|       20|
+|  5| Edward| 40|       40|
+|  6|  Frank| 28|       20|
++---+-------+---+---------+
+
+
++---+-------+----------------+
+| id|   name|       distances|
++---+-------+----------------+
+|  3|Charlie|              {}|
+|  5| Edward|{2 -> 3, 1 -> 2}|
+|  6|  Frank|{2 -> 2, 1 -> 1}|
+|  1|  Alice|{2 -> 1, 1 -> 0}|
+|  4|  David|              {}|
+|  2|    Bob|        {2 -> 0}|
++---+-------+----------------+
+
+vertices = spark.read.csv("/usr/local/spark/political-books/political-books-nodes.csv", header=True, inferSchema=True)
+edges = spark.read.csv("/usr/local/spark/political-books/political-books-edges.csv", header=True, inferSchema=True)
+
+vertices = vertices.withColumnRenamed("Id", "id") \
+                   .withColumnRenamed("Label", "label") \
+                   .withColumnRenamed("political ideology", "political_ideology")
+
+edges = edges.withColumnRenamed("source", "src") \
+             .withColumnRenamed("target", "dst")
+
+g = GraphFrame(vertices, edges)
+
+
+pagerank_results = g.pageRank(resetProbability=0.15, maxIter=10)
+pagerank_results.vertices.select("id", "label", "political_ideology", "pagerank").show()
+
+
+pagerank_results.vertices.write.csv("/usr/local/spark/pagerank_results.csv")
+
++---+--------------------+------------------+-------------------+
+| id|               label|political_ideology|           pagerank|
++---+--------------------+------------------+-------------------+
+| 19|       The Right Man|      conservative|0.44501864711029426|
+| 39|   The Savage Nation|      conservative| 0.3899326287192525|
+| 34| The O'Reilly Factor|      conservative| 0.7107369197305692|
+|101|               Shrub|           liberal|0.26720968689072394|
+|  4|Sleeping With the...|           neutral| 3.6414213593739846|
+| 71| Against All Enemies|           liberal|  1.672884405963791|
+| 66|The Great Unraveling|           liberal|  2.062778291845374|
+| 80|The Bubble of Ame...|           liberal|0.26720968689072394|
+| 65|          The Choice|           liberal| 0.7303337262085472|
+| 11|              Legacy|      conservative| 1.7547874770795926|
+| 14|      Rumsfeld's War|      conservative|  0.573590518177399|
+| 35|    Let Freedom Ring|      conservative| 0.6844680199391326|
+| 24|      Hating America|      conservative|0.47307196047612465|
+|104|              Empire|           neutral|0.26720968689072394|
+| 37|                Bias|      conservative|0.32814345026998976|
+|  1|Bush vs. the Beltway|      conservative|  4.744177958351326|
+| 74|The Lies of Georg...|           liberal|  0.829660932368288|
+| 63| The Culture of Fear|           liberal| 0.2897244769816261|
+| 89|     Perfectly Legal|           liberal|0.26720968689072394|
+| 17|    Shut Up and Sing|      conservative|0.28246290651740275|
++---+--------------------+------------------+-------------------+
+only showing top 20 rows
+
+
+
+shortest_paths = g.shortestPaths(landmarks=["1", "2"])
+shortest_paths.select("id", "label", "distances").show()
+
+
++---+--------------------+----------------+
+| id|               label|       distances|
++---+--------------------+----------------+
+| 19|       The Right Man|{2 -> 4, 1 -> 2}|
+| 39|   The Savage Nation|{2 -> 4, 1 -> 3}|
+| 34| The O'Reilly Factor|              {}|
+|101|               Shrub|{2 -> 4, 1 -> 5}|
+|  4|Sleeping With the...|        {2 -> 1}|
+| 71| Against All Enemies|{2 -> 2, 1 -> 3}|
+| 66|The Great Unraveling|{2 -> 3, 1 -> 4}|
+| 80|The Bubble of Ame...|{2 -> 3, 1 -> 4}|
+| 65|          The Choice|{2 -> 3, 1 -> 4}|
+| 11|              Legacy|{2 -> 4, 1 -> 2}|
+| 14|      Rumsfeld's War|{2 -> 2, 1 -> 2}|
+| 35|    Let Freedom Ring|{2 -> 4, 1 -> 3}|
+| 24|      Hating America|{2 -> 4, 1 -> 2}|
+|104|              Empire|{2 -> 4, 1 -> 5}|
+| 37|                Bias|{2 -> 4, 1 -> 3}|
+|  1|Bush vs. the Beltway|        {1 -> 0}|
+| 74|The Lies of Georg...|{2 -> 3, 1 -> 4}|
+| 63| The Culture of Fear|              {}|
+| 89|     Perfectly Legal|{2 -> 4, 1 -> 5}|
+| 17|    Shut Up and Sing|{2 -> 4, 1 -> 2}|
++---+--------------------+----------------+

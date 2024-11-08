@@ -1,0 +1,121 @@
+exc 8
+
+import csv
+
+data = [
+    ("JFK", "LAX", 3976, 300),
+    ("LAX", "SFO", 543, 100),
+    ("SFO", "ORD", 2967, 250),
+    ("ORD", "ATL", 987, 150),
+    ("ATL", "JFK", 1200, 200),
+    ("JFK", "MIA", 1762, 150),
+    ("MIA", "ATL", 661, 120),
+    ("SEA", "SFO", 1093, 180),
+    ("BOS", "JFK", 214, 110)
+]
+
+output_path = "F:/edges.csv"
+
+with open(output_path, mode='w', newline='') as file:
+    writer = csv.writer(file)
+
+    writer.writerow(["src", "dst", "distance", "cost"])
+
+    writer.writerows(data)
+
+print(f"CSV file created at: {output_path}")
+
+
+from pyspark.sql import SparkSession
+from graphframes import GraphFrame
+
+spark = SparkSession.builder.appName("FlightDataAnalysis").getOrCreate()
+
+vertices_csv_path = "F:/vertices.csv"
+edges_csv_path =  "F:/edges.csv"
+
+vertices = spark.read.csv(vertices_csv_path, header=True, inferSchema=True)
+edges = spark.read.csv(edges_csv_path, header=True, inferSchema=True)
+
+g = GraphFrame(vertices, edges)
+
+num_flight_routes = g.edges.count()
+print(f"Total number of flight routes: {num_flight_routes}")
+
+
+
++---+---+--------+----+
+|src|dst|distance|cost|
++---+---+--------+----+
+|JFK|LAX|    3976| 300|
+|SFO|ORD|    2967| 250|
+|JFK|MIA|    1762| 150|
+|ATL|JFK|    1200| 200|
+|SEA|SFO|    1093| 180|
+|ORD|ATL|     987| 150|
+|MIA|ATL|     661| 120|
+|LAX|SFO|     543| 100|
+|BOS|JFK|     214| 110|
++---+---+--------+----+
+
+
+degree_df = g.degrees.orderBy("degree", ascending=False)
+degree_df.show(1, truncate=False)
+
++---+------+
+|id |degree|
++---+------+
+|JFK|4     |
++---+------+
+only showing top 1 row
+
+
+from pyspark.sql import functions as F
+max_distance = g.edges.agg(F.max("distance")).collect()[0][0]
+edges_with_weights = g.edges.withColumn("weight", (max_distance - g.edges["distance"]) / max_distance)
+g_weighted = GraphFrame(g.vertices, edges_with_weights)
+pagerank = g_weighted.pageRank(resetProbability=0.15, maxIter=10)
+pagerank.vertices.show()
+
+pagerank.edges.show()
+
+lowest_cost_routes = g.edges.orderBy(g.edges["cost"].asc())
+lowest_cost_routes.show()
+
+
++---+------------------+--------+
+| id|              name|pagerank|
++---+------------------+--------+
+|LAX|       Los Angeles|     1.0|
+|SFO|     San Francisco|     1.0|
+|ORD|    Chicago O'Hare|     1.0|
+|ATL|Hartsfield-Jackson|     1.0|
+|JFK|    John F Kennedy|     1.0|
++---+------------------+--------+
+
++---+---+--------+----+-------------------+------+
+|src|dst|distance|cost|             weight|weight|
++---+---+--------+----+-------------------+------+
+|SFO|ORD|    2967| 250|0.25377263581488935|   1.0|
+|ATL|JFK|    1200| 200| 0.6981891348088531|   1.0|
+|ORD|ATL|     987| 150| 0.7517605633802817|   1.0|
+|LAX|SFO|     543| 100|  0.863430583501006|   1.0|
+|JFK|LAX|    3976| 300|                0.0|   1.0|
++---+---+--------+----+-------------------+------+
+
+
+lowest_cost_routes = g.edges.orderBy(g.edges["cost"].asc())
+lowest_cost_routes.show()
++---+---+--------+----+
+|src|dst|distance|cost|
++---+---+--------+----+
+|LAX|SFO|     543| 100|
+|BOS|JFK|     214| 110|
+|MIA|ATL|     661| 120|
+|ORD|ATL|     987| 150|
+|JFK|MIA|    1762| 150|
+|SEA|SFO|    1093| 180|
+|ATL|JFK|    1200| 200|
+|SFO|ORD|    2967| 250|
+|JFK|LAX|    3976| 300|
++---+---+--------+----+

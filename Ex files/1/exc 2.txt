@@ -1,0 +1,184 @@
+exc 2
+
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCount {
+
+    public static class WordCountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            StringTokenizer tokenizer = new StringTokenizer(line);
+            while (tokenizer.hasMoreTokens()) {
+                word.set(tokenizer.nextToken());
+                context.write(word, one);
+            }
+        }
+    }
+
+    public static class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private IntWritable result = new IntWritable();
+
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            result.set(sum);
+            context.write(key, result);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "word count");
+
+        job.setJarByClass(WordCount.class);
+        job.setMapperClass(WordCountMapper.class);
+        job.setCombinerClass(WordCountReducer.class);
+        job.setReducerClass(WordCountReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+hello 2
+i 2
+am 2
+ram 1
+sam 1
+
+
+
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.*;
+
+public class ElectricConsumption {
+
+    
+    public static class E_EMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+
+    private Text year = new Text();
+    private IntWritable units = new IntWritable();
+
+    
+    public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        String line = value.toString();
+        StringTokenizer tokenizer = new StringTokenizer(line, ",");
+
+        
+        if (tokenizer.hasMoreTokens()) {
+            String yearStr = tokenizer.nextToken().trim();
+            year.set(yearStr);
+
+            while (tokenizer.hasMoreTokens()) {
+                try {
+                    int unitsValue = Integer.parseInt(tokenizer.nextToken().trim());
+                    units.set(unitsValue);
+                    context.write(year, units);
+                } catch (NumberFormatException e) {
+                    
+                    System.err.println("Skipping non-integer value: " + e.getMessage());
+                }
+            }
+        } else {
+            System.err.println("Skipping malformed line: " + line);
+        }
+    }
+}
+
+
+    // Reducer class
+    public static class E_EReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        // Reduce function
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int maxUnits = Integer.MIN_VALUE;
+            int minUnits = Integer.MAX_VALUE;
+
+            for (IntWritable value : values) {
+                int currentUnits = value.get();
+                if (currentUnits > maxUnits) {
+                    maxUnits = currentUnits;
+                }
+                if (currentUnits < minUnits) {
+                    minUnits = currentUnits;
+                }
+            }
+
+            // Emit the year with max and min units
+            context.write(new Text(key.toString() + " Max Usage"), new IntWritable(maxUnits));
+            context.write(new Text(key.toString() + " Min Usage"), new IntWritable(minUnits));
+        }
+    }
+
+    // Main function
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "max_min_electricityunits");
+
+        job.setJarByClass(ElectricConsumption.class);
+        job.setMapperClass(E_EMapper.class);
+        job.setReducerClass(E_EReduce.class);
+
+        job.setMapOutputKeyClass(Text.class);
+        job.setMapOutputValueClass(IntWritable.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        job.setInputFormatClass(org.apache.hadoop.mapreduce.lib.input.TextInputFormat.class);
+        job.setOutputFormatClass(org.apache.hadoop.mapreduce.lib.output.TextOutputFormat.class);
+
+        org.apache.hadoop.mapreduce.lib.input.FileInputFormat.addInputPath(job, new Path(args[0]));
+        org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+output
+
+1979 Max Usage  43
+1979 Min Usage  2
+1980 Max Usage  31
+1980 Min Usage  26
+1981 Max Usage  36
+1981 Min Usage  31
+1984 Max Usage  43
+1984 Min Usage  38
+1985 Max Usage  45
+1985 Min Usage  0
+
+
+[21badl04@mepcolinux b]$exit
+exit

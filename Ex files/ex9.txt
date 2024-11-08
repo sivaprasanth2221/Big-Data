@@ -1,0 +1,55 @@
+jonam@Jonam:~/kafka/ex9$ cat spark.py
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+sc = SparkContext(appName="KafkaWordCount")
+ssc = StreamingContext(sc, 10) # 1 second batch interval
+
+
+lines = ssc.socketTextStream("localhost",9999)
+words = lines.flatMap(lambda line: line.split(" "))
+word_counts = words.map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b)
+
+
+word_counts.pprint()
+
+ssc.start()
+ssc.awaitTermination()
+jonam@Jonam:~/kafka/ex9$ cat word_stream.py
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import explode, split
+
+# Create a Spark session
+spark = SparkSession.builder \
+    .appName("KafkaWordCount") \
+    .getOrCreate()
+
+# Define the Kafka source
+kafka_source = "localhost:9092"
+topic = "wordcount"
+
+# Create a streaming DataFrame that reads from Kafka
+lines = spark \
+    .readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", kafka_source) \
+    .option("subscribe", topic) \
+    .load()
+
+# Cast the value column to string
+lines = lines.selectExpr("CAST(value AS STRING)")
+
+# Split lines into words and perform word count
+word_counts = lines.select(
+    explode(split(lines.value, " ")).alias("word")
+).groupBy("word").count()
+
+# Start the query to write the output to the console
+query = word_counts \
+    .writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .start()
+
+# Await termination
+query.awaitTermination()

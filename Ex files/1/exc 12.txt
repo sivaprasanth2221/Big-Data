@@ -1,0 +1,38 @@
+exc 12
+
+ripples
+prihas
+
+
+#include <stdio.h>  
+#include <math.h>  
+
+int main()  
+{  
+    int a1[10] = {1, 3, 5, 3, 5, 3, 5, 6, 3};  
+    int a2[10] = {1, 7, 3, 7, 27, 28, 13, 3};  
+    int maxc, maxnum, maxcc = 0, maxnum1 = 0;  
+    int n = 9; // Assuming n is the size of a1 and a2 arrays  
+    
+    for (int i = 0; i < n; i++) {  
+        maxc = 0; // Reset maxc for each new element  
+        maxnum = a1[i];  
+        
+        for (int j = 0; j < n; j++) {  
+            if (a1[i] == a1[j]) {  
+                maxc++;  
+            }  
+        }  
+
+        if (maxc > maxcc) {  
+            maxcc = maxc;  
+            maxnum1 = maxnum;  
+        } else if (maxc == maxcc) {  
+            // You may choose to handle ties here if needed  
+        }  
+    }  
+    
+    printf("\n Answer : %d", maxnum1);  
+    
+    return 0;  
+}

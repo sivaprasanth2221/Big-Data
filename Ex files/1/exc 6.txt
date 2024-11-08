@@ -1,0 +1,165 @@
+exc 6
+
+Script started on Fri 27 Sep 2024 12:26:00 PM IST
+[21badl04@mepcolinux b]$cat exc61.txt
+EVEN Batch
+EX NAME: Implement basic programs using Apache Spark – Lambda functions
+set 1:
+    1. Create an RDD from a list of words. Use a lambda function to map each word to its length. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+words = ["hello", "world", "spark", "rdd"]
+rdd = spark.sparkContext.parallelize(words)
+result_rdd = rdd.map(lambda x: len(x))
+print(result_rdd.collect())
+
+Result: [5, 5, 5, 3]
+
+    2. Create an RDD from a list of strings. Use a lambda function to filter out strings that do not start with a specific character (e.g., "A"). What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+strings = ["Apple", "Banana", "Avocado", "Cherry", "Apricot"]
+rdd = spark.sparkContext.parallelize(strings)
+result_rdd = rdd.filter(lambda x: x.startswith("A"))
+print(result_rdd.collect())
+
+t: ['Apple', 'Avocado', 'Apricot']
+
+    3. Create an RDD from a list of sentences. Use a lambda function to extract unique words from each sentence. What is the resulting RDD?
+
+
+>> from pyspark.sql import SparkSession
+>>>
+>>> # Initialize SparkSession
+>>> spark = SparkSession.builder.appName("UniqueWordsPerSentence").getOrCreate()
+>>>
+>>> # Sample sentences
+>>> sentences = ["Hello world Hello ram", "Spark is great", "Hello again"]
+>>>
+>>> # Create an RDD from the list of sentences
+>>> rdd = spark.sparkContext.parallelize(sentences)
+>>>
+>>> # Process each sentence to find unique words
+>>> unique_words_per_sentence = rdd.map(lambda sentence: set(sentence.split(" ")))
+>>>
+>>> # Collect and print the unique words for each sentence
+>>> for idx, unique_words in enumerate(unique_words_per_sentence.collect()):
+...     print(f"Sentence {idx + 1}: {unique_words}")
+...
+Sentence 1: {'ram', 'Hello', 'world'}
+Sentence 2: {'great', 'Spark', 'is'}
+Sentence 3: {'again', 'Hello'}
+>>> # Stop the Spark session
+>>> spark.stop()
+
+
+    4. Create an RDD of key-value pairs where keys are strings and values are numbers. Use a lambda function to multiply each value by 2 if the key starts with a specific letter. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+kv_pairs = [("Apple", 1), ("Banana", 2), ("Avocado", 3), ("Cherry", 4), ("Apricot", 5)]
+rdd = spark.sparkContext.parallelize(kv_pairs)
+result_rdd = rdd.map(lambda x: (x[0], x[1] * 2) if x[0].startswith("A") else x)
+print(result_rdd.collect())
+
+Result: [('Apple', 2), ('Banana', 2), ('Avocado', 6), ('Cherry', 4), ('Apricot', 10)]
+
+    5. Create an RDD from a list of sentences. Use a lambda function with flatMap to split sentences into words. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+sentences = ["Hello world", "Spark is great", "Hello again"]
+rdd = spark.sparkContext.parallelize(sentences)
+result_rdd = rdd.flatMap(lambda x: x.split(" "))
+print(result_rdd.collect())
+
+Result: ['Hello', 'world', 'Spark', 'is', 'great', 'Hello', 'again']
+
+    6. Create two RDDs of key-value pairs. Use a lambda function to join them on the key. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+rdd1 = spark.sparkContext.parallelize([("A", 1), ("B", 2), ("C", 3)])
+rdd2 = spark.sparkContext.parallelize([("A", "Apple"), ("B", "Banana"), ("D", "Dragon")])
+result_rdd = rdd1.join(rdd2)
+print(result_rdd.collect()) Resul
+
+t: [('A', (1, 'Apple')), ('B', (2, 'Banana'))]
+
+
+    7. Given a DataFrame with columns "Customer", "Purchase", and "Date", write a PySpark program to drop all rows with null values using the dropna() transformation.
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("John", 100, "2022-01-01"), ("Mary", 200, "2022-01-02"), (None, 300, "2022-01-03"), ("David", None, "2022-01-04")]
+df = spark.createDataFrame(data, ["Customer", "Purchase", "Date"])
+result_df = df.dropna()
+print(result_df.show())
+
++--------+--------+----------+
+|Customer|Purchase|      Date|
++--------+--------+----------+
+|    John|     100|2022-01-01|
+|    Mary|     200|2022-01-02|
++--------+--------+----------+
+
+    8. Create a DataFrame with columns "Item", "Price", and "Quantity". Write a PySpark program to calculate the average price per item.
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("Apple", 10.0, 2), ("Banana", 5.0, 3), ("Orange", 7.0, 4)]
+df = spark.createDataFrame(data, ["Item", "Price", "Quantity"])
+result_df = df.groupBy("Item").agg({"Price": "avg"})
+print(result_df.show())
+
++------+----------+
+|  Item|avg(Price)|
++------+----------+
+| Apple|      10.0|
+|Banana|       5.0|
+|Orange|       7.0|
++------+----------+
+
+
+    9. Create a DataFrame with columns "Name", "Age", and "Team". Write a PySpark program to group the DataFrame by "Team" and calculate the average age for each team.
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("John", 25, "Team A"), ("Mary", 30, "Team A"), ("David", 35, "Team B"), ("Emily", 20, "Team B")]
+df = spark.createDataFrame(data, ["Name", "Age", "Team"])
+result_df = df.groupBy("Team").agg({"Age": "avg"})
+print(result_df.show())
+
++------+--------+
+|  Team|avg(Age)|
++------+--------+
+|Team A|    27.5|
+|Team B|    27.5|
++------+--------+
+
+
+    10. Given a DataFrame with a column "Description", write a PySpark program to extract a substring from each description.
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+data = [("This is a description",), ("Another description",), ("Description with multiple words",)]
+df = spark.createDataFrame(data, ["Description"])
+result_df = df.withColumn("Substring", df.Description.substr(0, 10))
+print(result_df.show())
+
++--------------------+----------+
+|         Description| Substring|
++--------------------+----------+
+|This is a descrip...|This is a |
+| Another description|Another de|
+|Description with ...|Descriptio|
++--------------------+----------+

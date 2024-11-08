@@ -1,0 +1,248 @@
+1)
+	
+Customer_data.txt:
+
+John Smith,1500
+Jane Doe,3500
+Bob Johnson,750
+Alice Brown,20000
+Michael White,1200
+Sarah Davis,22000
+James Wilson,500
+Patricia Garcia,2500
+Robert Martinez,16000
+Linda Rodriguez,6000
+William Lee,400
+Elizabeth Taylor,3000
+Charles Anderson,18000
+Jessica Moore,10000
+Thomas Thomas,8000
+Matthew Hall,950
+Daniel Young,1300
+Karen Allen,4500
+Laura Scott,19000
+Brian King,700
+Kimberly Wright,11000
+
+CODE:
+
+customer_data = LOAD 'customer_data.txt' USING PigStorage(',') AS (Customer_Name:chararray,LTV:int);
+
+silver_program = FILTER customer_data BY (LTV > 100) AND (LTV <= 2000);
+gold_program = FILTER customer_data BY LTV > 20000;
+
+DUMP silver_program;
+DUMP gold_program;
+STORE silver_program INTO 'outputs/1/silver_program' USING PigStorage(',');
+STORE gold_program INTO 'outputs/1/gold_program' USING PigStorage(',');
+
+SILVER_PROGRAM:
+
+John Smith,1500
+Bob Johnson,750
+Michael White,1200
+James Wilson,500
+William Lee,400
+Matthew Hall,950
+Daniel Young,1300
+Brian King,700
+
+GOLD_PROGRAM:
+
+Sarah Davis,22000
+===================================================================================================
+2)	
+
+customer.txt
+101,John Smith,123 Elm St,Springfield,IL,USA
+102,Jane Doe,456 Oak St,Madison,WI,USA
+103,Bob Johnson,789 Maple Ave,Lincoln,NE,USA
+104,Alice Brown,101 Pine Rd,Omaha,NE,USA
+105,Michael White,202 Cedar St,Seattle,WA,USA
+106,Sarah Davis,303 Birch Blvd,Portland,OR,USA
+107,James Wilson,404 Ash Dr,Denver,CO,USA
+108,Patricia Garcia,505 Willow Ct,Phoenix,AZ,USA
+109,Robert Martinez,606 Spruce St,Austin,TX,USA
+110,Linda Rodriguez,707 Poplar Pl,Miami,FL,USA
+
+orders.txt:
+1,101,201,Laptop,2024-10-01,2024-10-05,1,1500
+2,102,202,Phone,2024-10-03,2024-10-07,2,800
+3,101,203,Keyboard,2024-10-04,2024-10-06,1,100
+4,103,204,Mouse,2024-10-05,2024-10-08,3,30
+5,104,205,Monitor,2024-10-06,2024-10-10,2,300
+6,105,206,Printer,2024-10-07,2024-10-12,1,150
+7,101,207,USB Cable,2024-10-08,2024-10-11,5,15
+8,106,208,Headphones,2024-10-09,2024-10-14,2,200
+9,102,209,External HDD,2024-10-10,2024-10-15,1,120
+10,107,210,Webcam,2024-10-11,2024-10-16,1,90
+
+Code :
+customer_data = LOAD 'customers.txt' USING PigStorage(',')
+    AS (Customer_ID:int, Customer_Name:chararray, Address:chararray, City:chararray, State:chararray, Country:chararray);
+
+order_data = LOAD 'orders.txt' USING PigStorage(',')
+    AS (Order_ID:int, Customer_ID:int, ItemID:int, Item_Name:chararray, Order_Date:chararray, Delivery_Date:chararray, Quantity:int, Cost:int);
+
+grouped_data = GROUP order_data BY Customer_ID;
+item_count = FOREACH grouped_data GENERATE group AS Customer_ID, SUM(order_data.Quantity) AS total_items;
+
+STORE item_count INTO 'outputs/2/item_count_per_customer' USING PigStorage(',');
+
+merged_data = JOIN customer_data BY Customer_ID, order_data BY Customer_ID;
+
+STORE merged_data INTO 'outputs/2/merged_customer_order_data' USING PigStorage(',');
+
+-- Join orders with customers on Customer_ID
+joined_data = JOIN orders BY Customer_ID, customers BY Customer_ID;
+
+
+order_customer_bag = FOREACH joined_data
+    GENERATE orders::Order_ID AS Order_ID, TOBAG(customers::Customer_Name) AS customer_info;
+
+-- Display the result
+DUMP order_customer_bag;
+
+-- Store the result into a file
+STORE order_customer_bag INTO 'order_customer_bag' USING PigStorage(',');
+
+
+ITEM_COUNT_PER_CUSTOMER:
+
+101,7
+102,3
+103,3
+104,2
+105,1
+106,2
+107,1
+
+MERGED_CUSTOMER_ORDER_DATA:
+
+101,John Smith,123 Elm St,Springfield,IL,USA,7,101,207,USB Cable,2024-10-08,2024-10-11,5,15
+101,John Smith,123 Elm St,Springfield,IL,USA,3,101,203,Keyboard,2024-10-04,2024-10-06,1,100
+101,John Smith,123 Elm St,Springfield,IL,USA,1,101,201,Laptop,2024-10-01,2024-10-05,1,1500
+102,Jane Doe,456 Oak St,Madison,WI,USA,9,102,209,External HDD,2024-10-10,2024-10-15,1,120
+102,Jane Doe,456 Oak St,Madison,WI,USA,2,102,202,Phone,2024-10-03,2024-10-07,2,800
+103,Bob Johnson,789 Maple Ave,Lincoln,NE,USA,4,103,204,Mouse,2024-10-05,2024-10-08,3,30
+104,Alice Brown,101 Pine Rd,Omaha,NE,USA,5,104,205,Monitor,2024-10-06,2024-10-10,2,300
+105,Michael White,202 Cedar St,Seattle,WA,USA,6,105,206,Printer,2024-10-07,2024-10-12,1,150
+106,Sarah Davis,303 Birch Blvd,Portland,OR,USA,8,106,208,Headphones,2024-10-09,2024-10-14,2,200
+107,James Wilson,404 Ash Dr,Denver,CO,USA,10,107,210,Webcam,2024-10-11,2024-10-16,1,90
+
+ORDER_MAP:
+
+7,{(John Smith)}
+3,{(John Smith)}
+1,{(John Smith)}
+9,{(Jane Doe)}
+2,{(Jane Doe)}
+4,{(Bob Johnson)}
+5,{(Alice Brown)}
+6,{(Michael White)}
+8,{(Sarah Davis)}
+10,{(James Wilson)}
+==================================================================================
+3)
+
+email.txt:
+user1001,user1001@sample.com,{(user003@sample.com),(user004@sample.com),(user006@sample.com)}
+user1002,user1002@sample.com,{(user005@sample.com),(user006@sample.com)}
+user1003,user1003@sample.com,{(user001@sample.com),(user005@sample.com)}
+code :
+
+emails = LOAD 'email.txt' USING PigStorage(',')
+    AS (UserID:chararray, From:chararray, To:chararray);
+result = FOREACH emails
+    GENERATE UserID, From, REPLACE(To, '[{()}]', '') AS ToList;
+DUMP result;
+STORE result INTO 'outputs/3/email_results' USING PigStorage(',');
+
+EMAIL_RESULTS:
+
+user1001,user1001@sample.com,user003@sample.com
+user1002,user1002@sample.com,user005@sample.com
+user1003,user1003@sample.com,user001@sample.com
+==========================================================================================
+
+4)
+
+input.txt:
+
+John Doe
+Jane Smith
+Alice Johnson
+hello
+pigscript
+
+code:
+
+REGISTER '/home/jonam/pig/lib/piggybank.jar';
+DEFINE UPPER org.apache.pig.piggybank.evaluation.string.UPPER();
+persons = LOAD 'input.txt' AS (name:chararray);
+persons_uppercase = FOREACH persons GENERATE UPPER(name) AS NameUpperCase;
+DUMP persons_uppercase;
+STORE persons_uppercase INTO 'outputs/4/uppercase_names' USING PigStorage(',');
+
+
+uppercase_names:
+
+JOHN DOE
+JANE SMITH
+ALICE JOHNSON
+HELLO
+PIGSCRIPT
+
+==========================================================================================
+
+5)
+
+ReverseString.java:
+package udf;
+
+import org.apache.pig.EvalFunc;
+import org.apache.pig.data.DataType;
+import org.apache.pig.data.Tuple;
+
+import java.io.IOException; // Import IOException
+
+public class ReverseString extends EvalFunc<String> {
+    @Override
+    public String exec(Tuple input) throws IOException {
+        if (input == null) {
+            return null;
+        }
+        String str = (String) input.get(0);
+        return new StringBuilder(str).reverse().toString();
+    }
+}
+
+javac -cp "/home/jonam/pig/pig-0.17.0-core-h2.jar:/home/jonam/hadoop/share/hadoop/common/*:/home/jonam/hadoop/share/hadoop/hdfs/*:/home/jonam/hadoop/share/hadoop/mapreduce/*" ReverseString.java
+
+jar -cvf udf.jar -C . udf/ReverseString.class
+
+INPUT.TXT:
+
+John Doe
+Jane Smith
+Alice Johnson
+hello
+pigscript
+
+CODE :
+
+REGISTER 'udf.jar';
+DEFINE ReverseString udf.ReverseString();
+data = LOAD 'input.txt' USING PigStorage(',') AS (line:chararray);
+reversed_data = FOREACH data GENERATE ReverseString(line) AS reversed_line;
+DUMP reversed_data;
+STORE reversed_data INTO 'outputs/5/reversed_output' USING PigStorage(',');
+
+
+REVERSED_OUTPUT:
+
+eoD nhoJ
+htimS enaJ
+nosnhoJ ecilA
+olleh
+tpircsgip

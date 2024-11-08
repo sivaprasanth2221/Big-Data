@@ -1,0 +1,401 @@
+ from pyspark import SparkContext
+ sc = SparkContext("Uppercase Transformation")
+
+ 1)Using a lambda function, transform an RDD of strings to uppercase. Show the transformed RDD.
+
+ rdd = sc.parallelize(["hello", "world", "spark", "is", "awesome"])
+ upper_rdd = rdd.map(lambda x: x.upper())
+ print(upper_rdd.collect())
+['HELLO', 'WORLD', 'SPARK', 'IS', 'AWESOME']
+
+ 2)Using a lambda function, sort an RDD of numbers in descending order. What is the resulting RDD?
+
+ rdd = sc.parallelize([5, 1, 8, 3, 7])
+ sorted_rdd = rdd.sortBy(lambda x: x, ascending=False)
+ print(sorted_rdd.collect())
+[8, 7, 5, 3, 1]
+
+ 3) Create an RDD from a list of sentences. Use a lambda function to filter out sentences containing a specific word (e.g., "Spark"). What is the resulting RDD?
+
+ sentences_rdd = sc.parallelize([
+...     "Apache Spark is a tool",
+...     "Big data handles large data",
+...     "spark is the one of the tool of bigdata",
+...     "Data science with Python"
+... ])
+ filtered_rdd = sentences_rdd.filter(lambda x: "Spark".lower() in x.lower())
+ print(filtered_rdd.collect())
+['Apache Spark is a tool', 'spark is the one of the tool of bigdata']
+
+ 4)Write a Spark program to find the maximum number in an RDD using a lambda function. What is the result?
+
+ rdd = sc.parallelize([1, 4, 7, 2, 9, 3])
+ max_number = rdd.max(lambda x: x)
+ print(max_number)
+9
+
+5)Create an RDD from a list of words. Use a lambda function to group words by their first letter. What is the resulting RDD?
+
+ words_rdd = sc.parallelize(["apple", "banana", "grape", "blueberry", "guava"])
+ grouped_rdd = words_rdd.groupBy(lambda x: x[0]).mapValues(list)
+ print(grouped_rdd.collect())
+[('b', ['banana', 'blueberry']), ('g', ['grape', 'guava']), ('a', ['apple'])]
+
+
+6)Create an RDD from a list of strings. Use a lambda function to filter out strings that contain less than 5 characters. What is the resulting RDD?
+
+ strings_rdd = sc.parallelize(["cat", "dog", "elephant", "ant", "fish"])
+ filtered_rdd = strings_rdd.filter(lambda x: len(x) < 5)
+ print(filtered_rdd.collect())
+['cat', 'dog', 'ant', 'fish']
+
+7)Create an RDD from a list of key-value pairs. Use a lambda function to swap the keys and values. What is the resulting RDD?
+
+ pairs_rdd = sc.parallelize([("a", 1), ("b", 2), ("c", 3)])
+ swapped_rdd = pairs_rdd.map(lambda x: (x[1], x[0]))
+ print(swapped_rdd.collect())
+[(1, 'a'), (2, 'b'), (3, 'c')]
+
+
+8)Create an RDD from a list of numbers. Use a lambda function to create pairs of numbers and their squares. What is the resulting RDD?
+
+ numbers_rdd = sc.parallelize([1, 2, 3, 4, 5])
+ squared_rdd = numbers_rdd.map(lambda x: (x, x**2))
+ print(squared_rdd.collect())
+[(1, 1), (2, 4), (3, 9), (4, 16), (5, 25)]
+
+9)Given a DataFrame with columns "Name", "Age", and "City", write a PySpark program to remove all duplicate rows using the distinct() transformation.
+
+ data = [("Alice", 25, "New York"), ("Bob", 30, "San Francisco"), ("Alice", 25, "New York")]
+ df = spark.createDataFrame(data, ["Name", "Age", "City"])
+ distinct_df = df.distinct()
+ distinct_df.show()
++-----+---+-------------+
+| Name|Age|         City|
++-----+---+-------------+
+|Alice| 25|     New York|
+|  Bob| 30|San Francisco|
++-----+---+-------------+
+
+
+10)Create a DataFrame with columns "Product", "Price", and "Category". Write a PySpark program to sort the DataFrame by "Price" in descending order.
+
+ data = [("Laptop", 1000, "Electronics"), ("Shoes", 1500, "Fashion"), ("Phone", 800, "Electronics")]
+ df = spark.createDataFrame(data, ["Product", "Price", "Category"])
+ sorted_df = df.orderBy(df["Price"].desc())
+ sorted_df.show()
++-------+-----+-----------+
+|Product|Price|   Category|
++-------+-----+-----------+
+|  Shoes| 1500|    Fashion|
+| Laptop| 1000|Electronics|
+|  Phone|  800|Electronics|
++-------+-----+-----------+
+
+
+ spark.stop()
+
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("Dataset").getOrCreate()
+df = spark.read.csv("/usr/local/kddcup.data_10.csv", header=False, inferSchema=True)
+column_names = [
+     "duration",
+     "protocol_type",
+     "service",
+     "flag",
+     "src_bytes",
+     "dst_bytes",
+     "land",
+     "wrong_fragment",
+     "urgent",
+     "hot",
+     "num_failed_logins",
+     "logged_in",
+     "num_compromised",
+     "root_shell",
+     "su_attempted",
+     "num_root",
+     "num_file_creations",
+     "num_shells",
+     "num_access_files",
+     "num_outbound_cmds",
+     "is_host_login",
+     "is_guest_login",
+     "count",
+     "srv_count",
+     "serror_rate",
+     "srv_serror_rate",
+     "rerror_rate",
+     "srv_rerror_rate",
+     "same_srv_rate",
+     "diff_srv_rate",
+     "srv_diff_host_rate",
+     "dst_host_count",
+     "dst_host_srv_count",
+     "dst_host_same_srv_rate",
+     "dst_host_diff_srv_rate",
+     "dst_host_same_src_port_rate",
+     "dst_host_srv_diff_host_rate",
+     "dst_host_serror_rate",
+     "dst_host_srv_serror_rate",
+     "dst_host_rerror_rate",
+     "dst_host_srv_rerror_rate",
+     "label"
+ ]
+df = df.toDF(*column_names)
+df.count()
+
+
+df.show(5)
+
+
+import time
+start_time = time.time()
+normal_df = df.filter(df.label == 'normal.')
+normal_count = normal_df.count()
+elapsed_time = time.time() - start_time
+print(f"Count of normal interactions: {normal_count}")
+print(f"Time taken: {elapsed_time} seconds")
+
+
+
+start_time_whole = time.time()
+normal_count_whole = df.filter(df.label == 'normal.').count()
+total_count_whole = df.count()
+percentage_normal_whole = (normal_count_whole / total_count_whole) * 100
+elapsed_time_whole = time.time() - start_time_whole
+print(f"Percentage of normal interactions (whole data): {percentage_normal_whole}%")
+print(f"Time taken (whole data): {elapsed_time_whole} seconds")
+
+
+
+sampled_df = df.sample(fraction=0.1, seed=42)
+start_time_sampled = time.time()
+normal_count_sampled = sampled_df.filter(sampled_df.label == 'normal.').count()
+total_count_sampled = sampled_df.count()
+percentage_normal_sampled = (normal_count_sampled / total_count_sampled) * 100
+elapsed_time_sampled = time.time() - start_time_sampled
+print(f"Percentage of normal interactions (sampled data): {percentage_normal_sampled}%")
+print(f"Time taken (sampled data): {elapsed_time_sampled} seconds")
+
+
+
+attack_count = total_count_whole - normal_count_whole
+print(f"Number of attack interactions: {attack_count}")
+
+
+
+protocols = df.select("protocol_type").distinct()
+services = df.select("service").distinct()
+print("Protocols:")
+protocols.show()
+print("Services:")
+services.show()
+
+
+
+protocols_services_pairs = protocols.crossJoin(services)
+protocols_services_pairs.show()
+
+
+
+from pyspark.sql.functions import col, mean, sum
+normal_durations = normal_df.select(col("duration"))
+total_duration_normal = normal_durations.agg(sum(col("duration"))).collect()[0][0]
+mean_duration_normal = normal_durations.agg(mean(col("duration"))).collect()[0][0]
+print(f"Total duration of normal interactions: {total_duration_normal}")
+print(f"Mean duration of normal interactions: {mean_duration_normal}")
+# Measure the total and mean duration of attack interactions
+attack_df = df.filter(df.label != 'normal.')
+attack_durations = attack_df.select(col("duration"))
+total_duration_attack = attack_durations.agg(sum(col("duration"))).collect()[0][0]
+mean_duration_attack = attack_durations.agg(mean(col("duration"))).collect()[0][0]
+
+
+
+print(f"Total duration of attack interactions: {total_duration_attack}")
+print(f"Mean duration of attack interactions: {mean_duration_attack}")
+
+
+
+
+from pyspark.sql.functions import avg
+state_duration_agg = df.groupBy("label").agg(
+    sum("duration").alias("total_duration"),
+    avg("duration").alias("mean_duration")
+)
+state_duration_agg.show()
+
+
+
+
+-----------------------------------------------
+
+
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("Load CSV Data").getOrCreate()
+
+file_path = "world-data-2023-cleaned.csv"
+df = spark.read.csv(file_path, header=True, inferSchema=True)
+df.show(5)
+
+
+record_count = df.count()
+print(f"Number of records: {record_count}")
+df.show(5)
+
+
+
+
+from pyspark.sql.functions import col, regexp_replace
+
+df_cleaned = df.withColumn("Co2-Emissions", regexp_replace(col("Co2-Emissions"), "[^0-9.]", ""))
+
+df_filtered = df_cleaned.withColumn("Co2-Emissions", col("Co2-Emissions").cast("float")) \
+                        .filter(col("Co2-Emissions").isNotNull()) \
+                        .filter(col("Co2-Emissions") > 5000)
+
+highest_emission_country = df_filtered.orderBy(col("Co2-Emissions").desc()).limit(1)
+
+lowest_emission_country = df_filtered.orderBy(col("Co2-Emissions").asc()).limit(1)
+
+print("Countries with Co2-Emissions > 5000:")
+df_filtered.select("Country", "Co2-Emissions").show()
+
+print("Country with highest Co2-Emissions:")
+highest_emission_country.select("Country", "Co2-Emissions").show()
+
+print("Country with lowest Co2-Emissions:")
+lowest_emission_country.select("Country", "Co2-Emissions").show()
+
+
+
+import time
+start_time = time.time()
+df_english = df.filter(col("Official language").like("%English%"))
+english_speaking_count = df_english.count()
+end_time = time.time()
+print(f"Number of English-speaking countries: {english_speaking_count}")
+print(f"Time taken: {end_time - start_time} seconds")
+
+
+
+
+df_sorted_by_gdp = df.orderBy(col("GDP").desc())
+df_sorted_by_gdp.select("Country", "GDP").show(10)
+
+
+
+
+start_time_full = time.time()
+total_count = df.count()
+english_speaking_count_full = df.filter(col("Official language").like("%English%")).count()
+percentage_full = (english_speaking_count_full / total_count) * 100
+end_time_full = time.time()
+
+print(f"Total countries: {total_count}")
+print(f"English-speaking countries: {english_speaking_count_full}")
+print(f"Percentage of English-speaking countries in whole data: {percentage_full:.2f}%")
+print(f"Time taken for whole data: {end_time_full - start_time_full:.2f} seconds")
+
+sample_fraction = 0.1 
+start_time_sample = time.time()
+df_sample = df.sample(withReplacement=False, fraction=sample_fraction)
+sample_count = df_sample.count()
+english_speaking_count_sample = df_sample.filter(col("Official language").like("%English%")).count()
+percentage_sample = (english_speaking_count_sample / sample_count) * 100
+end_time_sample = time.time()
+
+print(f"Sampled countries: {sample_count}")
+print(f"English-speaking countries in sample: {english_speaking_count_sample}")
+print(f"Percentage of English-speaking countries in sampled data: {percentage_sample:.2f}%")
+print(f"Time taken for sampled data: {end_time_sample - start_time_sample:.2f} seconds")
+
+
+
+
+
+
+total_count = df.count()
+english_speaking_count = df.filter(col("Official language").like("%English%")).count()
+other_languages_count = total_count - english_speaking_count
+print(f"Total countries: {total_count}")
+print(f"English-speaking countries: {english_speaking_count}")
+print(f"Countries speaking other languages: {other_languages_count}")
+
+
+
+
+
+df_abbreviation_calling_code = df.select("Abbreviation", "Calling Code")
+df_abbreviation_calling_code.show(truncate=False)
+
+
+
+
+
+
+df_abbreviation = df.select("Abbreviation")
+df_calling_code = df.select("Calling Code")
+df_pairs = df_abbreviation.crossJoin(df_calling_code)
+df_pairs.show(truncate=False)
+
+
+
+
+
+df = df.withColumn("GDP", 
+                   when(trim(regexp_replace(col("GDP"), "[$,]", "")) == "", None)
+                   .otherwise(trim(regexp_replace(col("GDP"), "[$,]", "")).cast("float")))
+
+gdp_english = df.filter(col("Official language").like("%English%")).agg(
+    sum("GDP").alias("Total GDP (English)"),
+    avg("GDP").alias("Mean GDP (English)")
+)
+
+gdp_english.show()
+
+
+
+
+
+from pyspark.sql.functions import col, sum, count, avg, regexp_replace, trim, when
+
+df = df.withColumn("GDP", 
+                   when(trim(regexp_replace(col("GDP"), "[$,]", "")) == "", None)
+                   .otherwise(trim(regexp_replace(col("GDP"), "[$,]", "")).cast("float")))
+language_profile = df.groupBy("Official language").agg(
+    sum("GDP").alias("Total GDP"),
+    avg("GDP").alias("Mean GDP"),
+    count("Country").alias("Country Count")
+)
+
+language_profile.orderBy("Total GDP", ascending=False).show(truncate=False)
+
+
+
+
+
+df = df.withColumn("GDP", 
+                   when(trim(regexp_replace(col("GDP"), "[$,]", "")) == "", None)
+                   .otherwise(trim(regexp_replace(col("GDP"), "[$,]", "")).cast("float")))
+df = df.dropna(subset=["GDP"])
+
+average_gdp_rdd = df.rdd.map(lambda row: (row["Official language"], row["GDP"])) \
+    .combineByKey(
+        lambda value: (value, 1),  # Initial value: (GDP sum, count)
+        lambda acc, value: (acc[0] + value, acc[1] + 1),  # Merge value: (sum, count)
+        lambda acc1, acc2: (acc1[0] + acc2[0], acc1[1] + acc2[1])  # Merge two accumulators
+    ).mapValues(lambda acc: acc[0] / acc[1])  # Calculate average GDP
+
+average_gdp_results = average_gdp_rdd.collect()
+
+for language, avg_gdp in average_gdp_results:
+    print(f"Language: {language}, Average GDP: {avg_gdp:.2f}")
+
+
+
+

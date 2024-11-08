@@ -1,0 +1,141 @@
+exc 9
+
+from pyspark import SparkConf, SparkContext
+from pyspark.streaming import StreamingContext
+
+# Set up the Spark configuration and context
+conf = SparkConf().setAppName("StreamingWordCount")
+sc = SparkContext(conf=conf)
+
+# Create a StreamingContext with a 1-second batch interval
+ssc = StreamingContext(sc, 1)
+
+# Create a DStream that connects to the hostname:port (Netcat server)
+lines = ssc.socketTextStream("localhost", 8888)
+
+# Split each line into words
+words = lines.flatMap(lambda line: line.split(" "))
+
+# Count each word in each batch
+word_counts = words.map(lambda word: (word, 1)).reduceByKey(lambda x, y: x + y)
+
+# Print the first 10 elements of each RDD generated in this DStream
+word_counts.pprint()
+
+# Start the computation
+ssc.start()
+
+# Wait for the streaming to finish
+ssc.awaitTermination()
+
+
+
+-------------------------------------------
+Time: 2024-10-08 22:02:47
+-------------------------------------------
+
+-------------------------------------------
+Time: 2024-10-08 22:02:48
+-------------------------------------------
+('im', 1)
+('ramkumar', 1)
+('k', 1)
+('hi', 1)
+
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import explode, split
+
+# Create a Spark session
+spark = SparkSession.builder \
+    .appName("KafkaWordCount") \
+    .getOrCreate()
+
+# Define the Kafka source
+kafka_source = "localhost:9092"
+topic = "word-count"
+
+# Create a streaming DataFrame that reads from Kafka
+lines = spark \
+    .readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", kafka_source) \
+    .option("subscribe", topic) \
+    .load()
+
+# Cast the value column to string
+lines = lines.selectExpr("CAST(value AS STRING)")
+
+# Split lines into words and perform word count
+word_counts = lines.select(
+    explode(split(lines.value, " ")).alias("word")
+).groupBy("word").count()
+
+# Start the query to write the output to the console
+query = word_counts \
+    .writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .start()
+
+# Await termination
+query.awaitTermination()
+
+
+
+kafka_consmer.py
+
+
+
+from kafka import KafkaConsumer
+
+# Define Kafka configuration
+topic = 'word-count'  # Replace with your topic name
+bootstrap_servers = ['localhost:9092']  # Replace with your Kafka server address
+
+# Create a Kafka consumer
+consumer = KafkaConsumer(
+    topic,
+    bootstrap_servers=bootstrap_servers,
+    auto_offset_reset='earliest',  # Start reading at the earliest message
+    enable_auto_commit=True,        # Automatically commit offsets
+    group_id='my-group',            # Consumer group ID
+    value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+)
+
+# Consume messages
+print(f'Consuming messages from topic: {topic}')
+for message in consumer:
+    print(f'Received message: {message.value} (offset: {message.offset})')
+
+
+1)socketstream.py
+
+
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+# Create a SparkContext and StreamingContext
+sc = SparkContext("local[2]", "NetworkWordCount")
+ssc = StreamingContext(sc, 1)  # 1 second batch interval
+
+# Create a DStream that connects to the hostname:port
+lines = ssc.socketTextStream("localhost", 9999)
+
+# Split each line into words
+words = lines.flatMap(lambda line: line.split(" "))
+
+# Count each word in each batch
+wordCounts = words.map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b)
+
+# Print the first 10 elements of each RDD generated in this DStream to the console
+wordCounts.pprint()
+
+# Start the streaming context and await termination
+ssc.start()
+ssc.awaitTermination()
+
+[21badl04@mepcolinux b]$exit
+exit
+
+Script done on Wed 16 Oct 2024 02:49:33 PM IST

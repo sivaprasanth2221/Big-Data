@@ -1,0 +1,59 @@
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RddMultiples").getOrCreate()
+24/08/06 21:03:20 WARN SparkSession: Using an existing Spark session; only runtime SQL configurations will take effect.
+
+empty_rdd = spark.sparkContext.emptyRDD()
+print(f"Number of partitions in empty RDD: {empty_rdd.getNumPartitions()}")
+Number of partitions in empty RDD: 0
+
+numbers_rdd = spark.sparkContext.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+print(f"Number of partitions in RDD from list: {numbers_rdd.getNumPartitions()}")
+Number of partitions in RDD from list: 12
+
+rdd_from_file = spark.sparkContext.textFile("input.txt")
+print(f"Number of partitions in RDD from file: {rdd_from_file.getNumPartitions()}")
+Number of partitions in RDD from file: 2
+
+filtered_squared_rdd = numbers_rdd.filter(lambda x: x % 2 != 0).map(lambda x: x ** 2)
+print(filtered_squared_rdd.collect())
+[1, 9, 25, 49, 81]
+
+sum_of_numbers = numbers_rdd.reduce(lambda x, y: x + y)
+print(sum_of_numbers)
+55
+
+numbers_rdd = spark.sparkContext.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10],numSlices=3)
+print(numbers_rdd.getNumPartitions())
+3
+
+numbers_rdd = spark.sparkContext.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10],numSlices=6)
+print(numbers_rdd.getNumPartitions())
+6
+
+numbers_rdd = spark.sparkContext.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10],numSlices=10)
+print(numbers_rdd.getNumPartitions())
+10
+
+scores_rdd = spark.sparkContext.parallelize([
+ ("Math", 90), ("Math", 80), ("Math", 85),
+ ("English", 75), ("English", 95), ("English", 70),
+ ("Science", 85), ("Science", 90), ("Science", 80)
+ ])
+
+avg_scores_rdd = scores_rdd.mapValues(lambda x: (x, 1))\
+ .reduceByKey(lambda x, y: (x[0] + y[0], x[1] + y[1]))\
+ .mapValues(lambda x: x[0] / x[1])
+
+max_scores_rdd = scores_rdd.reduceByKey(lambda x, y: max(x, y))
+
+print(avg_scores_rdd.collect())
+[('Science', 85.0), ('Math', 85.0), ('English', 80.0)]
+
+print(max_scores_rdd.collect())
+[('Science', 90), ('Math', 90), ('English', 95)]
+
+word_counts_rdd = text_file_rdd.flatMap(lambda line: line.split())\
+.map(lambda word: (word, 1))\
+.reduceByKey(lambda x, y: x + y)
+print(word_counts_rdd.collect())
+[('is', 1), ('hello', 4), ('This', 1), ('file', 1)]

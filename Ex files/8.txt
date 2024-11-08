@@ -1,0 +1,711 @@
+exc 8
+
+import csv
+
+data = [
+    ("JFK", "LAX", 3976, 300),
+    ("LAX", "SFO", 543, 100),
+    ("SFO", "ORD", 2967, 250),
+    ("ORD", "ATL", 987, 150),
+    ("ATL", "JFK", 1200, 200),
+    ("JFK", "MIA", 1762, 150),
+    ("MIA", "ATL", 661, 120),
+    ("SEA", "SFO", 1093, 180),
+    ("BOS", "JFK", 214, 110)
+]
+
+output_path = "F:/edges.csv"
+
+with open(output_path, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(["src", "dst", "distance", "cost"])
+    writer.writerows(data)
+
+print(f"CSV file created at: {output_path}")
+
+from pyspark.sql import SparkSession
+from graphframes import GraphFrame
+
+spark = SparkSession.builder.appName("FlightDataAnalysis").getOrCreate()
+
+vertices_csv_path = "F:/vertices.csv"
+edges_csv_path =  "F:/edges.csv"
+
+vertices = spark.read.csv(vertices_csv_path, header=True, inferSchema=True)
+edges = spark.read.csv(edges_csv_path, header=True, inferSchema=True)
+
+g = GraphFrame(vertices, edges)
+num_flight_routes = g.edges.count()
+print(f"Total number of flight routes: {num_flight_routes}")
++---+---+--------+----+
+|src|dst|distance|cost|
++---+---+--------+----+
+degree_df = g.degrees.orderBy("degree", ascending=False)
+degree_df.show(1, truncate=False)
++---+------+
+|id |degree|
++---+------+
+|JFK|4     |
++---+------+
+only showing top 1 row
+
+from pyspark.sql import functions as F
+max_distance = g.edges.agg(F.max("distance")).collect()[0][0]
+edges_with_weights = g.edges.withColumn("weight", (max_distance - g.edges["distance"]) / max_distance)
+g_weighted = GraphFrame(g.vertices, edges_with_weights)
+pagerank = g_weighted.pageRank(resetProbability=0.15, maxIter=10)
+pagerank.vertices.show()
+
+pagerank.edges.show()
+
+lowest_cost_routes = g.edges.orderBy(g.edges["cost"].asc())
+lowest_cost_routes.show()
+
+
+ 
+EXC 7
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("IoT Intrusion Detection").getOrCreate()
+data_path = r"IoT_Intrusion.csv"
+df = spark.read.csv(data_path, header=True, inferSchema=True)
+
+df.show(5)
+
+from pyspark.ml.feature import VectorAssembler, StringIndexer
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+indexer = StringIndexer(inputCol="label", outputCol="label_indexed")
+
+df = indexer.fit(df).transform(df)
+feature_columns = [col for col in df.columns if col != "label" and col != "label_indexed"]
+
+assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+df = assembler.transform(df)
+train_data, test_data = df.randomSplit([0.7, 0.3])
+
+rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="features", numTrees=10)
+
+model = rf.fit(train_data)
+predictions = model.transform(test_data)
+evaluator = MulticlassClassificationEvaluator(labelCol="label_indexed", metricName="accuracy")
+accuracy = evaluator.evaluate(predictions)
+print(f"Accuracy: {accuracy}")
+
+from pyspark.sql.types import DoubleType, IntegerType
+from pyspark.ml.clustering import KMeans
+from pyspark.ml.evaluation import ClusteringEvaluator
+from pyspark.ml.feature import VectorAssembler, StandardScaler
+
+feature_columns = [col for col in df.columns if col != "label" and df.schema[col].dataType in [DoubleType(), IntegerType()]]
+
+assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+
+if "features" in df.columns:
+    df = df.drop("features")
+
+df_features = assembler.transform(df)
+
+scaler = StandardScaler(inputCol="features", outputCol="scaled_features", withMean=True, withStd=True)
+scaler_model = scaler.fit(df_features)
+
+
+df_scaled = scaler_model.transform(df_features)
+
+k=3
+kmeans = KMeans(featuresCol="scaled_features", k)
+model = kmeans.fit(df_scaled)
+predictions = model.transform(df_scaled)
+evaluator = ClusteringEvaluator(featuresCol="scaled_features")
+silhouette = evaluator.evaluate(predictions)
+print(f"Silhouette with squared euclidean distance = {silhouette}")
+
+Silhouette with squared euclidean distance = 0.4486144988490741
+
+-----===================================================================
+EXC 6
+EX NAME: Implement basic programs using Apache Spark – Lambda functions
+set 1:
+    1. Create an RDD from a list of words. Use a lambda function to map each word to its length. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+words = ["hello", "world", "spark", "rdd"]
+rdd = spark.sparkContext.parallelize(words)
+result_rdd = rdd.map(lambda x: len(x))
+print(result_rdd.collect())
+
+Result: [5, 5, 5, 3]
+
+    2. Create an RDD from a list of strings. Use a lambda function to filter out strings that do not start with a specific character (e.g., "A"). What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+strings = ["Apple", "Banana", "Avocado", "Cherry", "Apricot"]
+rdd = spark.sparkContext.parallelize(strings)
+result_rdd = rdd.filter(lambda x: x.startswith("A"))
+print(result_rdd.collect())
+
+t: ['Apple', 'Avocado', 'Apricot']
+
+    3. Create an RDD from a list of sentences. Use a lambda function to extract unique words from each sentence. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+>>>
+>>> # Initialize SparkSession
+>>> spark = SparkSession.builder.appName("UniqueWordsPerSentence").getOrCreate()
+>>>
+>>> # Sample sentences
+>>> sentences = ["Hello world Hello ram", "Spark is great", "Hello again"]
+>>>
+>>> # Create an RDD from the list of sentences
+>>> rdd = spark.sparkContext.parallelize(sentences)
+>>>
+>>> # Process each sentence to find unique words
+>>> unique_words_per_sentence = rdd.map(lambda sentence: set(sentence.split(" ")))
+>>>
+>>> # Collect and print the unique words for each sentence
+>>> for idx, unique_words in enumerate(unique_words_per_sentence.collect()):
+...     print(f"Sentence {idx + 1}: {unique_words}")
+...
+Sentence 1: {'ram', 'Hello', 'world'}
+>>> # Stop the Spark session
+>>> spark.stop()
+    4. Create an RDD of key-value pairs where keys are strings and values are numbers. Use a lambda function to multiply each value by 2 if the key starts with a specific letter. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+kv_pairs = [("Apple", 1), ("Banana", 2), ("Avocado", 3), ("Cherry", 4), ("Apricot", 5)]
+rdd = spark.sparkContext.parallelize(kv_pairs)
+result_rdd = rdd.map(lambda x: (x[0], x[1] * 2) if x[0].startswith("A") else x)
+print(result_rdd.collect())
+
+Result: [('Apple', 2), ('Banana', 2), ('Avocado', 6), ('Cherry', 4), ('Apricot', 10)]
+
+    5. Create an RDD from a list of sentences. Use a lambda function with flatMap to split sentences into words. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+sentences = ["Hello world", "Spark is great", "Hello again"]
+rdd = spark.sparkContext.parallelize(sentences)
+result_rdd = rdd.flatMap(lambda x: x.split(" "))
+print(result_rdd.collect())
+
+Result: ['Hello', 'world', 'Spark', 'is', 'great', 'Hello', 'again']
+
+    6. Create two RDDs of key-value pairs. Use a lambda function to join them on the key. What is the resulting RDD?
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("RDD Example").getOrCreate()
+
+rdd1 = spark.sparkContext.parallelize([("A", 1), ("B", 2), ("C", 3)])
+rdd2 = spark.sparkContext.parallelize([("A", "Apple"), ("B", "Banana"), ("D", "Dragon")])
+result_rdd = rdd1.join(rdd2)
+print(result_rdd.collect()) Resul
+
+t: [('A', (1, 'Apple')), ('B', (2, 'Banana'))]
+    7. Given a DataFrame with columns "Customer", "Purchase", and "Date", write a PySpark program to drop all rows with null values using the dropna() transformation.
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("John", 100, "2022-01-01"), ("Mary", 200, "2022-01-02"), (None, 300, "2022-01-03"), ("David", None, "2022-01-04")]
+df = spark.createDataFrame(data, ["Customer", "Purchase", "Date"])
+result_df = df.dropna()
+print(result_df.show())
+
+    8. Create a DataFrame with columns "Item", "Price", and "Quantity". Write a PySpark program to calculate the average price per item.
+
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("Apple", 10.0, 2), ("Banana", 5.0, 3), ("Orange", 7.0, 4)]
+df = spark.createDataFrame(data, ["Item", "Price", "Quantity"])
+result_df = df.groupBy("Item").agg({"Price": "avg"})
+print(result_df.show())
+
+    9. Create a DataFrame with columns "Name", "Age", and "Team". Write a PySpark program to group the DataFrame by "Team" and calculate the average age for each team.
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+
+data = [("John", 25, "Team A"), ("Mary", 30, "Team A"), ("David", 35, "Team B"), ("Emily", 20, "Team B")]
+df = spark.createDataFrame(data, ["Name", "Age", "Team"])
+result_df = df.groupBy("Team").agg({"Age": "avg"})
+print(result_df.show())
+
+    10. Given a DataFrame with a column "Description", write a PySpark program to extract a substring from each description.
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("DataFrame Example").getOrCreate()
+data = [("This is a description",), ("Another description",), ("Description with multiple words",)]
+df = spark.createDataFrame(data, ["Description"])
+result_df = df.withColumn("Substring", df.Description.substr(0, 10))
+print(result_df.show())
+ 
+exc 9;
+jonam@Jonam:~/kafka/ex9$ cat spark.py
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+sc = SparkContext(appName="KafkaWordCount")
+ssc = StreamingContext(sc, 10) # 1 second batch interval
+
+lines = ssc.socketTextStream("localhost",9999)
+words = lines.flatMap(lambda line: line.split(" "))
+word_counts = words.map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b)
+
+word_counts.pprint()
+
+ssc.start()
+ssc.awaitTermination()
+
+jonam@Jonam:~/kafka/ex9$ cat word_stream.py
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import explode, split
+
+# Create a Spark session
+spark = SparkSession.builder.appName("KafkaWordCount").getOrCreate()
+
+# Define the Kafka source
+kafka_source = "localhost:9092"
+topic = "wordcount"
+
+# Create a streaming DataFrame that reads from Kafka
+lines = spark .readStream .format("kafka") .option("kafka.bootstrap.servers", kafka_source) \
+    .option("subscribe", topic)  .load()
+
+# Cast the value column to string
+lines = lines.selectExpr("CAST(value AS STRING)")
+
+# Split lines into words and perform word count
+word_counts = lines.select(
+    explode(split(lines.value, " ")).alias("word")
+).groupBy("word").count()
+
+# Start the query to write the output to the console
+query = word_counts \
+    .writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .start()
+
+# Await termination
+query.awaitTermination()
+
+exc 10
+
+jonam@Jonam:~/kafka/ex10$ cat producer.py
+from kafka import KafkaProducer
+
+# Define Kafka configuration
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    value_serializer=lambda v: str(v).encode('utf-8')  # Serialize messages to JSON
+)
+
+print("Enter features for prediction (comma-separated values). Type 'exit' to stop.")
+
+while True:
+    # Get user input
+    user_input = input("Input features (e.g., 5.1,3.5,1.4,0.2): ")
+    if user_input.lower() == "exit":
+        break
+
+    # Split input into a list of features
+
+    producer.send('mlmodel',value=user_input)
+    print(f"Sent: {user_input}")
+
+# Ensure all messages are sent before exiting
+producer.flush()
+jonam@Jonam:~/kafka/ex10$ cat ml_stream.py
+from pyspark.sql import SparkSession
+from pyspark.ml.classification import LogisticRegressionModel
+from pyspark.ml.clustering import KMeansModel
+from pyspark.ml.feature import VectorAssembler
+from pyspark.sql.functions import col, split
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("KafkaSparkCSVStreaming").getOrCreate()
+
+# Read streaming data from Kafka
+df = spark.readStream.format("kafka") \
+    .option("kafka.bootstrap.servers", "localhost:9092") \
+    .option("subscribe", "mlmodel") \
+    .load()
+
+logistic_model = LogisticRegressionModel.load("logistic_regression_model")
+clustering_model = KMeansModel.load("kmeans_model")
+
+df = df.selectExpr("CAST(value AS STRING)")
+
+# Split the CSV values into columns (assuming CSV structure: feature1, feature2, label)
+df = df.withColumn("value", split(col("value"), ","))
+
+df = df.select(
+    col("value").getItem(0).cast("double").alias("feature1"),
+    col("value").getItem(1).cast("double").alias("feature2"),
+    col("value").getItem(2).cast("double").alias("feature3"),
+    col("value").getItem(3).cast("double").alias("feature4")
+)
+
+# VectorAssembler for features
+assembler = VectorAssembler(inputCols=["feature1", "feature2","feature3","feature4"], outputCol="features")
+df = assembler.transform(df)
+
+static_df = df.select("features")
+
+logistic_predictions = logistic_model.transform(static_df)
+
+
+clustering_predictions = clustering_model.transform(static_df)
+
+results_df = logistic_predictions.select("features", "prediction").alias("logistic") \
+    .join(clustering_predictions.select("features", "prediction").alias("cluster"),
+          on="features", how="inner")
+
+query = results_df \
+    .writeStream \
+    .outputMode("append") \
+    .format("console") \
+    .start()
+
+query.awaitTermination()
+jonam@Jonam:~/kafka/ex10$
+
+=========================================================================
+To accomplish the tasks you've outlined using PySpark, here’s a step-by-step guide along with sample code snippets. Since this involves working with an external dataset, ensure that your Spark environment is correctly set up, and you have the required dependencies.
+First, you'll need to download the dataset from Kaggle and load it into your Spark environment.
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("CountriesDataAnalysis").getOrCreate()
+
+url = "https://path_to_your_downloaded_file.csv"  # Update with the path to the CSV file
+data = spark.read.csv(url, header=True, inferSchema=True)
+
+data.printSchema()
+
+### 2. Count the Number of Records and Print the First 5 Lines
+record_count = data.count()
+print(f"Number of records: {record_count}")
+data.show(5)
+
+### 3. Filter Countries with Co2-Emissions Greater than 5000
+high_co2_countries = data.filter(data["Co2-Emissions"] > 5000)
+max_co2_country = high_co2_countries.orderBy(data["Co2-Emissions"].desc()).first()
+print(f"Country with highest CO2 Emissions: {max_co2_country['Country']} with {max_co2_country['Co2-Emissions']}")
+
+min_co2_country = high_co2_countries.orderBy(data["Co2-Emissions"].asc()).first()
+print(f"Country with lowest CO2 Emissions: {min_co2_country['Country']} with {min_co2_country['Co2-Emissions']}")
+
+### 4. Filter and Count English Speaking Countries and Measure Computation Time
+import time
+
+start_time = time.time()
+english_speaking_countries = data.filter(data["Language"] == "English")
+english_count = english_speaking_countries.count()
+duration = time.time() - start_time
+
+print(f"Number of English speaking countries: {english_count}")
+print(f"Computation time: {duration} seconds")
+
+### 5. Sort Countries with Respect to GDP
+sorted_by_gdp = data.orderBy(data["GDP"].desc())
+sorted_by_gdp.show(10)  # Show top 10 for example
+
+### 6. Sample Data to Measure Percentage of English Speaking Countries
+sampled_data = data.sample(fraction=0.1, seed=42)
+
+sample_english_count = sampled_data.filter(sampled_data["Language"] == "English").count()
+sample_total_count = sampled_data.count()
+percentage_english = (sample_english_count / sample_total_count) * 100
+
+print(f"Percentage of English speaking countries in sample: {percentage_english}%")
+
+sample_duration = time.time() - start_time
+print(f"Sampling computation time: {sample_duration} seconds")
+
+### 7. Count Other Languages Speaking Countries
+total_countries = data.count()
+
+# Other languages speaking countries
+other_languages_count = total_countries - english_count
+print(f"Number of other languages speaking countries: {other_languages_count}")
+
+### 8. Extract Abbreviation and Calling Code
+abbr_and_code = data.select("Abbreviation", "Calling Code")
+abbr_and_code.show(5)
+
+### 9. Create All Possible Pairs of Abbreviation and Calling Code
+pairs = abbr_and_code.crossJoin(abbr_and_code)
+pairs.show(10)
+
+### 10. Measure Total and Mean GDP of English and Other Languages Speaking Countries
+english_gdp = english_speaking_countries.agg({"GDP": "sum", "GDP": "avg"}).collect()
+print(f"Total GDP of English speaking countries: {english_gdp[0][0]}")
+print(f"Mean GDP of English speaking countries: {english_gdp[0][1]}")
+
+other_gdp = data.subtract(english_speaking_countries).agg({"GDP": "sum", "GDP": "avg"}).collect()
+print(f"Total GDP of other languages speaking countries: {other_gdp[0][0]}")
+print(f"Mean GDP of other languages speaking countries: {other_gdp[0][1]}")
+
+### 11. Profile Each Language in Terms of GDP and Counts
+language_profile = data.groupBy("Language").agg({"GDP": "sum", "*": "count"}).orderBy("Language")
+language_profile.show()
+
+### 12. Evaluate Average GDP Per Language Using `combineByKey`
+rdd = data.select("Language", "GDP").rdd
+
+def create_combiner(value):
+    return (value, 1)
+
+def merge_value(combiner, value):
+    return (combiner[0] + value, combiner[1] + 1)
+
+def merge_combiners(comb1, comb2):
+    return (comb1[0] + comb2[0], comb1[1] + comb2[1])
+
+avg_gdp_per_language = rdd.combineByKey(create_combiner, merge_value, merge_combiners).mapValues(lambda x: x[0] / x[1])
+avg_gdp_per_language.collect()
+
+This code should give you a comprehensive start on performing the requested analyses on the dataset. Be sure to replace placeholders like `path_to_your_downloaded_file.csv` and column names like `Co2-Emissions`, `Language`, etc., with the actual names from your dataset.
+
+
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCount {
+
+    public static class WordCountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            StringTokenizer tokenizer = new StringTokenizer(line);
+            while (tokenizer.hasMoreTokens()) {
+                word.set(tokenizer.nextToken());
+                context.write(word, one);
+            }        }    }
+    public static class WordCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private IntWritable result = new IntWritable();
+
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            result.set(sum);
+            context.write(key, result);
+        }    }
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "word count");
+
+        job.setJarByClass(WordCount.class);
+        job.setMapperClass(WordCountMapper.class);
+        job.setCombinerClass(WordCountReducer.class);
+        job.setReducerClass(WordCountReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }}
+
+
+public static class E_EMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+
+    private Text year = new Text();
+    private IntWritable units = new IntWritable();
+
+    
+    public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        String line = value.toString();
+        StringTokenizer tokenizer = new StringTokenizer(line, ",");
+
+        
+        if (tokenizer.hasMoreTokens()) {
+            String yearStr = tokenizer.nextToken().trim();
+            year.set(yearStr);
+
+            while (tokenizer.hasMoreTokens()) {
+                try {
+                    int unitsValue = Integer.parseInt(tokenizer.nextToken().trim());
+                    units.set(unitsValue);
+                    context.write(year, units);
+                } catch (NumberFormatException e) {
+                    
+                    System.err.println("Skipping non-integer value: " + e.getMessage());
+                }
+            }
+        } else {
+            System.err.println("Skipping malformed line: " + line);
+        }
+    }
+}
+
+
+    // Reducer class
+    public static class E_EReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        // Reduce function
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int maxUnits = Integer.MIN_VALUE;
+            int minUnits = Integer.MAX_VALUE;
+
+            for (IntWritable value : values) {
+                int currentUnits = value.get();
+                if (currentUnits > maxUnits) {
+                    maxUnits = currentUnits;
+                }
+                if (currentUnits < minUnits) {
+                    minUnits = currentUnits;
+                }
+            }
+
+            // Emit the year with max and min units
+            context.write(new Text(key.toString() + " Max Usage"), new IntWritable(maxUnits));
+            context.write(new Text(key.toString() + " Min Usage"), new IntWritable(minUnits));
+        }
+    }
+
+    // Main function
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "max_min_electricityunits");
+
+exc 5
+
+[21badl04@mepcolinux b]$cat exc5.txt
+
+ from pyspark import SparkConf, SparkContext
+
+ conf = SparkConf().setAppName("CreateRDDsExample")
+ sc = SparkContext(conf=conf)
+
+ data = [1, 2, 3, 4, 5]
+ rdd1 = sc.parallelize(data)
+ rdd2 = sc.textFile("textfile.txt")
+ rdd3 = rdd1.coalesce(2)
+
+ print("Number of partitions for rdd1:", rdd1.getNumPartitions())
+Number of partitions for rdd1: 12
+ print("Number of partitions for rdd2:", rdd2.getNumPartitions())
+Number of partitions for rdd2: 2
+ print("Number of partitions for rdd3:", rdd3.getNumPartitions())
+Number of partitions for rdd3: 2
+
+ sc.stop()
+
+from pyspark import SparkConf, SparkContext
+conf = SparkConf().setAppName("FilterAndCountLines")
+sc = SparkContext(conf=conf)
+rdd = sc.textFile("textfile.txt")
+keyword = "Spark"
+filtered_rdd = rdd.filter(lambda line: keyword not in line)
+count = filtered_rdd.count()
+print(f"Number of lines remaining after filtering out '{keyword}': {count}")
+//Number of lines remaining after filtering out 'Spark': 3
+sc.stop()
+
+ from pyspark import SparkConf, SparkContext
+ from pyspark.mllib.linalg import Vectors
+ from pyspark.sql import Row
+ import math
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("SumAndFactorials")
+ sc = SparkContext(conf=conf)
+
+ # Read a text file and create an RDD of numbers
+ rdd = sc.textFile("numbers.txt").map(lambda line: int(line))
+
+ # Calculate the sum of numbers
+ sum_of_numbers = rdd.sum()
+ print(f"Sum of numbers: {sum_of_numbers}")
+Sum of numbers: 15
+
+ # Find factorials of each number
+ factorials_rdd = rdd.map(lambda x: (x, math.factorial(x)))
+ for num, fact in factorials_rdd.collect():
+...     print(f"Factorial of {num} is {fact}")
+...
+Factorial of 1 is 1
+Factorial of 2 is 2
+Factorial of 3 is 6
+Factorial of 4 is 24
+Factorial of 5 is 120
+ # Stop the Spark context
+ sc.stop()
+
+
+ from pyspark import SparkConf, SparkContext
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("EmployeeData")
+ sc = SparkContext(conf=conf)
+
+ # Create RDD from employee data
+ data = [(1, 50000), (2, 60000), (3, 70000), (4, 80000)]
+ rdd = sc.parallelize(data)
+
+ # i) Find the highest salary
+ highest_salary = rdd.map(lambda x: x[1]).max()
+ print(f"Highest salary: {highest_salary}")
+Highest salary: 80000
+
+ # ii) Sort the employee IDs in ascending order
+ sorted_rdd = rdd.sortBy(lambda x: x[0])
+ print("Sorted employee IDs and salaries:")
+Sorted employee IDs and salaries:
+ for emp in sorted_rdd.collect():
+...     print(emp)
+...
+(1, 50000)
+(2, 60000)
+(3, 70000)
+(4, 80000)
+ # Stop the Spark context
+ sc.stop()
+
+ from pyspark import SparkConf, SparkContext
+
+ # Initialize Spark
+ conf = SparkConf().setAppName("WordCount")
+ sc = SparkContext(conf=conf)
+
+ # Read a text file
+ rdd = sc.textFile("textfile.txt")
+
+ # Split lines into words and count occurrences
+ word_counts = rdd.flatMap(lambda line: line.split()) \
+...                   .map(lambda word: (word, 1)) \
+...                   .reduceByKey(lambda a, b: a + b)
+
+ # Collect and print results
+ for word, count in word_counts.collect():
+...     print(f"{word}: {count}")
