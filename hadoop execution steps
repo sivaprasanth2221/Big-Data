@@ -1,0 +1,10 @@
+hadoop fs -mkdir user/hadoop/input/
+hadoop fs -put input.txt user/hadoop/input/
+
+javac -classpath $(hadoop classpath) -d . WordCount.java
+jar -cvf wordcount.jar WordCount -C . .
+
+hadoop jar wordcount.jar Wordcount user/hadoop/input/ user/hadoop/output/
+
+hadoop fs -ls user/hadoop/output/
+hadoop fs -cat user/hadoop/output/part-*
