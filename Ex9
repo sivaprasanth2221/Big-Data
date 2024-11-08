@@ -1,0 +1,72 @@
+1. Download kafka from official website. (I have downloaded kafka 3.5.1)
+https://kafka.apache.org/downloads
+
+2. Extract the .tgz file
+tar -xzf kafka_2.13-3.5.1.tgz
+
+3. Move Kafka Directory
+sudo mv kafka_2.13-3.5.1 /usr/local/kafka
+
+4. Change directory to kafka
+cd /usr/local/kafka
+
+5. Open new terminal in kafka directory
+
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+6. Again open new terminal in kafka directory
+
+bin/kafka-server-start.sh config/server.properties
+
+7. Run 
+bin/kafka-topics.sh --create --topic word-count --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+8. Create a Python file, for example, word_count_stream.py in the kafka directory
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import explode, split
+
+# Create a Spark session
+spark = SparkSession.builder \
+    .appName("KafkaWordCount") \
+    .getOrCreate()
+
+# Define the Kafka source
+kafka_source = "localhost:9092"
+topic = "word-count"
+
+# Create a streaming DataFrame that reads from Kafka
+lines = spark \
+    .readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", kafka_source) \
+    .option("subscribe", topic) \
+    .load()
+
+# Cast the value column to string
+lines = lines.selectExpr("CAST(value AS STRING)")
+
+# Split lines into words and perform word count
+word_counts = lines.select(
+    explode(split(lines.value, " ")).alias("word")
+).groupBy("word").count()
+
+# Start the query to write the output to the console
+query = word_counts \
+    .writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .start()
+
+# Await termination
+query.awaitTermination()
+
+9. Start a Kafka Producer in new terminal (type the input here)
+
+bin/kafka-console-producer.sh --topic word-count --bootstrap-server localhost:9092
+
+10. Run spark streaming application
+
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 word_count_stream.py
+
+Here the output will be displayed
