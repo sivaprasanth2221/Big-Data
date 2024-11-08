@@ -1,0 +1,8 @@
+bin/zookeeper-server-start.sh config/zookeeper.properties
+bin/kafka-server-start.sh config/server.properties
+
+bin/kafka-topics.sh --create --topic data-stream --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 sparkstream.py
+chmod +x stream-csv-to-kafka.sh
+./stream-csv-to-kafka.sh
